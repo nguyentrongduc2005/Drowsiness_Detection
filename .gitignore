@@ -1,0 +1,46 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# --- Conda ---
+.conda/
+conda-meta/
+
+# --- IDEs (VS Code, PyCharm) ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+
+
+# Không push các file log cá nhân khi test
+utils/session_logs.csv
+logs/*.csv
+
+# Không push file âm thanh nếu quá nặng (tùy chọn)
+# data/*.wav
+
+# --- OS rác ---
+.DS_Store
+Thumbs.db

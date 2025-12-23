@@ -1,0 +1,18 @@
+{
+  "eye_thresholds": {
+    "ear_limit": 0.25,
+    "consecutive_frames": 20
+  },
+  "mouth_thresholds": {
+    "mar_limit": 0.6,
+    "yawn_frames": 30
+  },
+  "paths": {
+    "model_path": "data/shape_predictor_68_face_landmarks.dat",
+    "alarm_sound": "data/alarm.wav"
+  },
+  "settings": {
+    "camera_id": 0,
+    "show_landmarks": true
+  }
+}
