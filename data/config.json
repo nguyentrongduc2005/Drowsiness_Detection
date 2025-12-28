@@ -1,11 +1,18 @@
 {
   "eye_thresholds": {
-    "ear_limit": 0.25,
-    "consecutive_frames": 20
+    "ear_default": 0.25,
+    "consecutive_frames": 20,
+    "min_ear_threshold": 0.18,
+    "max_ear_threshold": 0.3
   },
   "mouth_thresholds": {
     "mar_limit": 0.6,
     "yawn_frames": 30
+  },
+  "smart_threshold": {
+    "window_size": 150,
+    "min_samples_for_learning": 100,
+    "threshold_multiplier": 0.75
   },
   "paths": {
     "model_path": "data/shape_predictor_68_face_landmarks.dat",
@@ -13,6 +20,8 @@
   },
   "settings": {
     "camera_id": 0,
-    "show_landmarks": true
+    "show_landmarks": true,
+    "fps_display": true,
+    "log_enabled": true
   }
 }

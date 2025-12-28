@@ -42,5 +42,6 @@ logs/*.csv
 # data/*.wav
 
 # --- OS rác ---
+*.txt
 .DS_Store
 Thumbs.db
