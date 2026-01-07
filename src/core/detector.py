@@ -61,18 +61,18 @@ class FaceDetector:
             return None
         
         try:
-            # Đảm bảo frame là contiguous và uint8
-            if not frame.flags['C_CONTIGUOUS']:
-                frame = np.ascontiguousarray(frame, dtype=np.uint8)
-            elif frame.dtype != np.uint8:
-                frame = frame.astype(np.uint8)
+            # # Đảm bảo frame là contiguous và uint8
+            # if not frame.flags['C_CONTIGUOUS']:
+            #     frame = np.ascontiguousarray(frame, dtype=np.uint8)
+            # elif frame.dtype != np.uint8:
+            #     frame = frame.astype(np.uint8)
             
             # Chuyển sang grayscale để phát hiện face
             if len(frame.shape) == 3:
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             else:
                 gray = frame.copy()
-            
+
             # Tạo một bản copy sạch cho dlib predictor
             gray_for_predictor = np.empty_like(gray, dtype=np.uint8)
             gray_for_predictor[:] = gray

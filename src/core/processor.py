@@ -4,6 +4,7 @@ Module Logic: Tính toán EAR, MAR và quản lý ngưỡng thích nghi
 import numpy as np
 from collections import deque
 from scipy.spatial import distance as dist
+from .config import Config
 
 
 def calculate_ear(eye_points):
@@ -72,17 +73,24 @@ class SmartThreshold:
     Class quản lý ngưỡng thích nghi dựa trên lịch sử EAR của người dùng
     """
     
-    def __init__(self, window_size=150):
+    def __init__(self, config=None):
         """
         Khởi tạo SmartThreshold
         
         Args:
-            window_size: Kích thước cửa sổ lưu lịch sử EAR
+            config: Đối tượng Config để lấy cấu hình
         """
-        self.window_size = window_size
-        self.history = deque(maxlen=window_size)
-        self.default_threshold = 0.25
-        self.min_samples_for_learning = 100
+        if config is None:
+            config = Config()
+        
+        self.config = config
+        self.window_size = config.get_window_size()
+        self.history = deque(maxlen=self.window_size)
+        self.default_threshold = config.get_ear_default()
+        self.min_samples_for_learning = config.get_min_samples()
+        self.threshold_multiplier = config.get('smart_threshold.threshold_multiplier', 0.75)
+        self.min_ear_threshold = config.get('eye_thresholds.min_ear_threshold', 0.18)
+        self.max_ear_threshold = config.get('eye_thresholds.max_ear_threshold', 0.30)
         
     def update_threshold(self, current_ear):
         """
@@ -117,11 +125,11 @@ class SmartThreshold:
         # Tính trung bình
         avg_ear = np.mean(top_50_percent)
         
-        # Ngưỡng = 75% giá trị trung bình (điều chỉnh tùy thực tế)
-        adaptive_threshold = avg_ear * 0.75
+        # Ngưỡng = threshold_multiplier * giá trị trung bình
+        adaptive_threshold = avg_ear * self.threshold_multiplier
         
         # Đảm bảo ngưỡng trong khoảng hợp lý
-        adaptive_threshold = max(0.18, min(0.30, adaptive_threshold))
+        adaptive_threshold = max(self.min_ear_threshold, min(self.max_ear_threshold, adaptive_threshold))
         
         return adaptive_threshold, True
     
@@ -149,21 +157,25 @@ class DrowsinessDetector:
     Class tổng hợp để phát hiện buồn ngủ
     """
     
-    def __init__(self, consec_frames=20, yawn_frames=15):
+    def __init__(self, config=None):
         """
         Khởi tạo detector
         
         Args:
-            consec_frames: Số frame liên tiếp mắt nhắm để cảnh báo
-            yawn_frames: Số frame liên tiếp ngáp để đếm là 1 lần ngáp
+            config: Đối tượng Config để lấy cấu hình
         """
-        self.consec_frames = consec_frames
-        self.yawn_frames = yawn_frames
+        if config is None:
+            config = Config()
+        
+        self.config = config
+        self.consec_frames = config.get_consecutive_frames()
+        self.yawn_frames = config.get('mouth_thresholds.yawn_frames', 30)
+        self.mar_threshold = config.get('mouth_thresholds.mar_limit', 0.6)
         self.counter = 0
         self.yawn_counter = 0
         self.is_drowsy = False
         self.is_yawning = False
-        self.smart_threshold = SmartThreshold()
+        self.smart_threshold = SmartThreshold(config)
         
         # Theo dõi ngáp và chớp mắt
         self.yawn_count_total = 0  # Tổng số lần ngáp
@@ -211,7 +223,7 @@ class DrowsinessDetector:
         
         # Cập nhật ngưỡng thích nghi
         threshold, is_calibrated = self.smart_threshold.update_threshold(ear)
-        
+        current_eye_state = ""
         # Kiểm tra buồn ngủ (EAR thấp - nhắm mắt lâu)
         if ear < threshold:
             self.counter += 1
@@ -234,8 +246,7 @@ class DrowsinessDetector:
         self.last_eye_state = current_eye_state
         
         # Kiểm tra ngáp (MAR cao)
-        mar_threshold = 0.6  # Ngưỡng MAR cho ngáp
-        if mar > mar_threshold:
+        if mar > self.mar_threshold:
             self.yawn_counter += 1
             
             # Chỉ đếm là 1 lần ngáp khi đạt đủ số frame
