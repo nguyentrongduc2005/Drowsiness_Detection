@@ -1,15 +1,25 @@
 """
 Module Giao diện: Thiết kế UI cho ứng dụng phát hiện buồn ngủ
+Style: Military Dashboard / Sci-Fi HUD
 """
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
-                             QLabel, QPushButton, QGroupBox, QStatusBar)
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QImage, QPixmap, QFont
+                             QLabel, QPushButton, QGroupBox, QStatusBar, QFrame,
+                             QSizePolicy, QGridLayout)
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QPixmap, QFont, QPalette, QColor
 
+# --- Cyberpunk / Military Palette ---
+COLOR_BG_MAIN = "#000000"     # Deepest Black
+COLOR_PANEL_BG = "#0b0c10"    # Dark panel bg
+COLOR_CYAN = "#00f3ff"        # Primary Accent (Neon Cyan)
+COLOR_RED = "#ff003c"         # Alert Color
+COLOR_GREEN = "#1fcc7e"       # Safe Color
+COLOR_TEXT_DIM = "#8892b0"    # Dimmed text
+FONT_HUD = "Consolas"         # Monospaced font
 
 class MainWindow(QMainWindow):
     """
-    Class chính của giao diện ứng dụng
+    Class chính của giao diện ứng dụng (HUD Style)
     """
     
     def __init__(self):
@@ -18,265 +28,326 @@ class MainWindow(QMainWindow):
         
     def init_ui(self):
         """Khởi tạo giao diện"""
-        self.setWindowTitle("Hệ thống Phát hiện Buồn ngủ")
-        self.setGeometry(100, 100, 1200, 700)
+        self.setWindowTitle("SENTINEL :: OPERATOR INTERFACE")
+        # FIX UI 3: Fixed window size, smaller dimensions
+        self.setFixedSize(1200, 700)
+        
+        # --- GLOBAL STYLESHEET ---
+        self.setStyleSheet(f"""
+            QMainWindow {{
+                background-color: {COLOR_BG_MAIN};
+            }}
+            QWidget {{
+                font-family: '{FONT_HUD}';
+                color: {COLOR_CYAN};
+            }}
+            QGroupBox {{
+                background-color: {COLOR_PANEL_BG};
+                border: 1px solid #1f2833;
+                border-top: 2px solid {COLOR_CYAN};
+                border-radius: 4px;
+                margin-top: 24px;
+                padding-top: 10px;
+                font-weight: bold;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                padding: 4px 10px;
+                background-color: {COLOR_CYAN};
+                color: #000;
+                font-weight: bold;
+                border: none;
+            }}
+            QLabel {{
+                border: none;
+            }}
+        """)
         
         # Widget chính
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         
-        # Layout chính
-        main_layout = QHBoxLayout()
-        central_widget.setLayout(main_layout)
+        # Layout chính (Split 75% | 25%)
+        main_layout = QHBoxLayout(central_widget)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(10)
         
-        # === Panel bên trái: Video ===
-        video_layout = QVBoxLayout()
+        # =========================================================================
+        # LEFT PANEL: CAMERA FEED (HUD STYLE)
+        # =========================================================================
         
-        # Label hiển thị video
-        self.video_label = QLabel()
-        self.video_label.setMinimumSize(800, 600)
-        self.video_label.setAlignment(Qt.AlignCenter)
-        self.video_label.setStyleSheet("""
-            QLabel {
+        # Container for the video to handle the border and HUD elements
+        self.video_container = QFrame()
+        self.video_container.setFrameShape(QFrame.NoFrame)
+        # A glowing border effect for the frame
+        self.video_container.setStyleSheet(f"""
+            QFrame {{
                 background-color: #000000;
-                border: 2px solid #333333;
-                border-radius: 5px;
-            }
+                border: 1px solid #1f2833;
+                border-radius: 2px;
+            }}
         """)
+        
+        video_layout = QVBoxLayout(self.video_container)
+        video_layout.setContentsMargins(2, 2, 2, 2)
+        
+        # The Video Label itself
+        self.video_label = QLabel()
+        # CRITICAL FIX: Set minimum size to avoid infinite growth loop
+        self.video_label.setMinimumSize(1, 1)
+        self.video_label.setAlignment(Qt.AlignCenter)
+        self.video_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.video_label.setStyleSheet("border: 1px solid #00f3ff; background-color: #000;")
+        # Placeholder text
+        self.video_label.setText("SIGNAL_LOST // WAITING_FOR_LINK...")
+        
+        # Add labels to make it look like a viewfinder
+        overlay_layout = QVBoxLayout(self.video_label)
+        overlay_layout.setContentsMargins(10, 10, 10, 10)
+        
+        top_hud = QHBoxLayout()
+        lbl_cam = QLabel("CAM_01: ACTIVE")
+        lbl_cam.setStyleSheet("background: transparent; color: #00f3ff; font-size: 10px;")
+        lbl_rec = QLabel("[ REC ]")
+        lbl_rec.setStyleSheet("background: transparent; color: #ff003c; font-size: 10px;")
+        top_hud.addWidget(lbl_cam)
+        top_hud.addStretch()
+        top_hud.addWidget(lbl_rec)
+        
+        overlay_layout.addLayout(top_hud)
+        overlay_layout.addStretch()
+        
+        bottom_hud = QHBoxLayout()
+        lbl_coords = QLabel("X: 000 | Y: 000")
+        lbl_coords.setStyleSheet("background: transparent; color: #00f3ff; font-size: 10px;")
+        bottom_hud.addWidget(lbl_coords)
+        bottom_hud.addStretch()
+        
+        overlay_layout.addLayout(bottom_hud)
+        
         video_layout.addWidget(self.video_label)
         
-        main_layout.addLayout(video_layout, 70)
+        # Add to main layout (75%)
+        main_layout.addWidget(self.video_container, 75)
         
-        # === Panel bên phải: Thông tin ===
-        info_layout = QVBoxLayout()
+        # =========================================================================
+        # RIGHT PANEL: SIDEBAR DASHBOARD
+        # =========================================================================
         
-        # === Group box: Trạng thái hệ thống ===
-        status_group = QGroupBox("Trạng thái Hệ thống")
-        status_group.setFont(QFont("Arial", 12, QFont.Bold))
-        status_layout = QVBoxLayout()
+        sidebar = QFrame()
+        sidebar.setStyleSheet(f"background-color: {COLOR_PANEL_BG}; border-left: 2px solid #0b0c10;")
+        sidebar_layout = QVBoxLayout(sidebar)
+        sidebar_layout.setContentsMargins(15, 10, 15, 15)
+        sidebar_layout.setSpacing(20)
         
-        # Label trạng thái (Đang học / Đang bảo vệ)
-        self.status_label = QLabel("Đang khởi động...")
-        self.status_label.setFont(QFont("Arial", 14))
-        self.status_label.setAlignment(Qt.AlignCenter)
-        self.status_label.setStyleSheet("""
-            QLabel {
-                background-color: #3498db;
-                color: white;
-                padding: 15px;
-                border-radius: 5px;
-                font-weight: bold;
-            }
+        # 1. HEADER
+        lbl_header = QLabel("SENTINEL\nMONITORING SYSTEM")
+        lbl_header.setAlignment(Qt.AlignCenter)
+        lbl_header.setFont(QFont(FONT_HUD, 16, QFont.Bold))
+        lbl_header.setStyleSheet(f"""
+            color: {COLOR_CYAN};
+            border-bottom: 2px solid {COLOR_CYAN};
+            padding-bottom: 10px;
+            letter-spacing: 2px;
         """)
-        status_layout.addWidget(self.status_label)
+        sidebar_layout.addWidget(lbl_header)
+
+        # 2. STATUS BOX
+        status_group = QGroupBox("SYSTEM STATUS")
+        vbox_status = QVBoxLayout()
+        self.status_display = QLabel("STANDBY")
+        self.status_display.setAlignment(Qt.AlignCenter)
+        self.status_display.setFont(QFont(FONT_HUD, 14, QFont.Bold))
+        self.status_display.setStyleSheet(f"color: white; background-color: #1a1a1a; padding: 10px; border-radius: 4px;")
+        vbox_status.addWidget(self.status_display)
+        status_group.setLayout(vbox_status)
+        sidebar_layout.addWidget(status_group)
         
-        status_group.setLayout(status_layout)
-        info_layout.addWidget(status_group)
+        # 3. METRICS READOUT (GRID)
+        metrics_group = QGroupBox("LIVE TELEMETRY")
+        grid_metrics = QGridLayout()
+        grid_metrics.setVerticalSpacing(15)
+        grid_metrics.setHorizontalSpacing(10)
         
-        # === Group box: Chỉ số ===
-        metrics_group = QGroupBox("Chỉ số Giám sát")
-        metrics_group.setFont(QFont("Arial", 12, QFont.Bold))
-        metrics_layout = QVBoxLayout()
+        # Helper for metric item
+        def add_metric_widget(name, row, col):
+            container = QWidget()
+            vbox = QVBoxLayout(container)
+            vbox.setContentsMargins(0,0,0,0)
+            vbox.setSpacing(2)
+            
+            lbl_name = QLabel(name)
+            lbl_name.setFont(QFont(FONT_HUD, 9))
+            lbl_name.setStyleSheet(f"color: {COLOR_TEXT_DIM};")
+            lbl_name.setAlignment(Qt.AlignLeft)
+            
+            lbl_val = QLabel("--")
+            lbl_val.setFont(QFont(FONT_HUD, 18, QFont.Bold))
+            lbl_val.setStyleSheet(f"color: {COLOR_CYAN};")
+            lbl_val.setAlignment(Qt.AlignLeft)
+            
+            vbox.addWidget(lbl_name)
+            vbox.addWidget(lbl_val)
+            
+            grid_metrics.addWidget(container, row, col)
+            return lbl_val
+
+        self.val_ear = add_metric_widget("EAR (Eyes)", 0, 0)
+        self.val_mar = add_metric_widget("MAR (Mouth)", 0, 1)
+        self.val_fps = add_metric_widget("FPS_RATE", 1, 0)
+        self.val_thresh = add_metric_widget("THRESHOLD", 1, 1)
         
-        # EAR
-        self.ear_label = QLabel("EAR: --")
-        self.ear_label.setFont(QFont("Arial", 12))
-        self.ear_label.setStyleSheet("padding: 5px;")
-        metrics_layout.addWidget(self.ear_label)
+        metrics_group.setLayout(grid_metrics)
+        sidebar_layout.addWidget(metrics_group)
         
-        # Threshold
-        self.threshold_label = QLabel("Ngưỡng: --")
-        self.threshold_label.setFont(QFont("Arial", 12))
-        self.threshold_label.setStyleSheet("padding: 5px;")
-        metrics_layout.addWidget(self.threshold_label)
-        
-        # FPS
-        self.fps_label = QLabel("FPS: --")
-        self.fps_label.setFont(QFont("Arial", 12))
-        self.fps_label.setStyleSheet("padding: 5px;")
-        metrics_layout.addWidget(self.fps_label)
-        
-        metrics_group.setLayout(metrics_layout)
-        info_layout.addWidget(metrics_group)
-        
-        # === Group box: Cảnh báo ===
-        alert_group = QGroupBox("Cảnh báo")
-        alert_group.setFont(QFont("Arial", 12, QFont.Bold))
-        alert_layout = QVBoxLayout()
-        
-        self.alert_label = QLabel("Tỉnh táo")
-        self.alert_label.setFont(QFont("Arial", 16, QFont.Bold))
-        self.alert_label.setAlignment(Qt.AlignCenter)
-        self.alert_label.setStyleSheet("""
-            QLabel {
-                background-color: #2ecc71;
-                color: white;
-                padding: 20px;
-                border-radius: 5px;
-            }
+        # 4. ALERT STATUS AREA
+        self.alert_box = QFrame()
+        self.alert_box.setFrameShape(QFrame.NoFrame)
+        # Initial Style (Sci-Fi Green Glass)
+        self.alert_box.setStyleSheet(f"""
+            background-color: rgba(31, 204, 126, 0.1);
+            border: 2px solid {COLOR_GREEN};
+            border-radius: 6px;
         """)
-        alert_layout.addWidget(self.alert_label)
+        alert_layout = QVBoxLayout(self.alert_box)
         
-        alert_group.setLayout(alert_layout)
-        info_layout.addWidget(alert_group)
+        self.lbl_alert_text = QLabel("STATUS :: ONLINE")
+        self.lbl_alert_text.setAlignment(Qt.AlignCenter)
+        self.lbl_alert_text.setFont(QFont(FONT_HUD, 14, QFont.Bold))
+        # Style text with neon glow look and spacing
+        self.lbl_alert_text.setStyleSheet(f"border: none; color: {COLOR_GREEN}; padding: 0px; letter-spacing: 2px;")
         
-        # === Nút điều khiển ===
-        button_layout = QVBoxLayout()
+        alert_layout.addWidget(self.lbl_alert_text)
         
-        self.start_button = QPushButton("Bắt đầu")
-        self.start_button.setFont(QFont("Arial", 12))
-        self.start_button.setMinimumHeight(40)
-        self.start_button.setStyleSheet("""
-            QPushButton {
-                background-color: #27ae60;
-                color: white;
-                border: none;
-                border-radius: 5px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #229954;
-            }
-        """)
-        button_layout.addWidget(self.start_button)
+        sidebar_layout.addWidget(self.alert_box)
         
-        self.stop_button = QPushButton("Dừng")
-        self.stop_button.setFont(QFont("Arial", 12))
-        self.stop_button.setMinimumHeight(40)
+        # Spacer
+        sidebar_layout.addStretch()
+        
+        # 5. CONTROL PANEL (Buttons)
+        controls_group = QGroupBox("MANUAL OVERRIDE")
+        controls_layout = QVBoxLayout()
+        # FIX UI 1: Increase spacing between buttons
+        controls_layout.setSpacing(20)
+        
+        def create_btn(text, obj_name, bg_color):
+            btn = QPushButton(text)
+            btn.setObjectName(obj_name)
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.setFixedHeight(45)
+            btn.setFont(QFont(FONT_HUD, 10, QFont.Bold))
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {bg_color}33;  /* 33 denotes alpha transparency */
+                    border: 2px solid {bg_color};
+                    color: {bg_color};
+                    border-radius: 0px;
+                }}
+                QPushButton:hover {{
+                    background-color: {bg_color};
+                    color: #000;
+                }}
+                QPushButton:disabled {{
+                    border-color: #333;
+                    color: #333;
+                    background-color: transparent;
+                }}
+            """)
+            return btn
+
+        self.start_button = create_btn("INITIATE (START)", "btnStart", COLOR_CYAN)
+        self.stop_button = create_btn("TERMINATE (STOP)", "btnStop", COLOR_RED)
+        self.reset_button = create_btn("RE-CALIBRATE", "btnReset", "#f39c12") # Orange
+        
+        # Logic initial state
         self.stop_button.setEnabled(False)
-        self.stop_button.setStyleSheet("""
-            QPushButton {
-                background-color: #e74c3c;
-                color: white;
-                border: none;
-                border-radius: 5px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #c0392b;
-            }
-            QPushButton:disabled {
-                background-color: #95a5a6;
-            }
-        """)
-        button_layout.addWidget(self.stop_button)
         
-        self.reset_button = QPushButton("Học lại")
-        self.reset_button.setFont(QFont("Arial", 12))
-        self.reset_button.setMinimumHeight(40)
-        self.reset_button.setStyleSheet("""
-            QPushButton {
-                background-color: #f39c12;
-                color: white;
-                border: none;
-                border-radius: 5px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #d68910;
-            }
-        """)
-        button_layout.addWidget(self.reset_button)
+        controls_layout.addWidget(self.start_button)
+        controls_layout.addWidget(self.stop_button)
+        controls_layout.addWidget(self.reset_button)
         
-        info_layout.addLayout(button_layout)
+        controls_group.setLayout(controls_layout)
+        sidebar_layout.addWidget(controls_group)
         
-        # Thêm khoảng trống
-        info_layout.addStretch()
+        # Add sidebar to main layout (25%)
+        main_layout.addWidget(sidebar, 25)
         
-        main_layout.addLayout(info_layout, 30)
-        
-        # Status bar
+        # Status Bar
         self.statusBar = QStatusBar()
+        self.statusBar.setStyleSheet(f"color: {COLOR_TEXT_DIM}; background-color: {COLOR_PANEL_BG}; font-size: 11px;")
         self.setStatusBar(self.statusBar)
-        self.statusBar.showMessage("Sẵn sàng")
-        
+        self.statusBar.showMessage("SYSTEM INITIALIZED. STANDBY MOOE.")
+
     def update_view(self, qt_image, ear, threshold, status, is_drowsy=False, fps=0):
         """
-        Cập nhật giao diện với thông tin mới
-        
-        Args:
-            qt_image: QImage để hiển thị trên video_label
-            ear: Giá trị EAR hiện tại
-            threshold: Ngưỡng hiện tại
-            status: Text trạng thái (Hệ thống đang học / Đang bảo vệ)
-            is_drowsy: True nếu phát hiện buồn ngủ
-            fps: Frames per second
+        Cập nhật giao diện với frame và thông số mới
         """
-        # Cập nhật video
+        # 1. UPDATE VIDEO FEED
         if qt_image is not None:
+            # Scale mode logic:
+            # Use KeepAspectRatio to ensure the image isn't distorted.
             pixmap = QPixmap.fromImage(qt_image)
-            scaled_pixmap = pixmap.scaled(self.video_label.size(), 
-                                         Qt.KeepAspectRatio, 
-                                         Qt.SmoothTransformation)
-            self.video_label.setPixmap(scaled_pixmap)
-        
-        # Cập nhật EAR
-        self.ear_label.setText(f"EAR: {ear:.3f}")
-        
-        # Cập nhật Threshold
-        self.threshold_label.setText(f"Ngưỡng: {threshold:.3f}")
-        
-        # Cập nhật FPS
-        self.fps_label.setText(f"FPS: {fps:.1f}")
-        
-        # Cập nhật trạng thái hệ thống
-        self.status_label.setText(status)
-        
-        # Đổi màu dựa trên trạng thái
-        if "Đang học" in status:
-            self.status_label.setStyleSheet("""
-                QLabel {
-                    background-color: #3498db;
-                    color: white;
-                    padding: 15px;
-                    border-radius: 5px;
-                    font-weight: bold;
-                }
-            """)
-        else:
-            self.status_label.setStyleSheet("""
-                QLabel {
-                    background-color: #2ecc71;
-                    color: white;
-                    padding: 15px;
-                    border-radius: 5px;
-                    font-weight: bold;
-                }
-            """)
-        
-        # Cập nhật cảnh báo
-        if is_drowsy:
-            self.alert_label.setText("⚠ CẢNH BÁO: BUỒN NGỦ!")
-            self.alert_label.setStyleSheet("""
-                QLabel {
-                    background-color: #e74c3c;
-                    color: white;
-                    padding: 20px;
-                    border-radius: 5px;
-                    font-weight: bold;
-                }
-            """)
             
-            # Nhấp nháy (có thể thêm hiệu ứng)
-            self.statusBar.showMessage("⚠ CẢNH BÁO: Phát hiện buồn ngủ!", 5000)
+            # Use label dimensions but ensure we don't cause overflow
+            w = self.video_label.width() - 2  # Subtract padding/border width
+            h = self.video_label.height() - 2
+            
+            if w > 0 and h > 0:
+                # Scale
+                scaled_pixmap = pixmap.scaled(w, h, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                self.video_label.setPixmap(scaled_pixmap)
+            
+        # 2. UPDATE METRICS
+        self.val_ear.setText(f"{ear:.3f}")
+        self.val_thresh.setText(f"{threshold:.3f}")
+        self.val_fps.setText(f"{int(fps)}")
+        # Assuming MAR is not passed in checking args, if it is passed, add it.
+        # The calling signature is: update_view(self, qt_image, ear, threshold, status, is_drowsy, fps)
+        # It seems 'mar' is missing from the list. If main.py sends it or calculates it, we need it.
+        # For now, leaving MAR as placeholder or extracting from somewhere if possible.
+        # Actually in main.py call is: self.window.update_view(qt_image, ear, threshold, status, is_drowsy, self.fps)
+        self.val_mar.setText("N/A") 
+
+        # 3. UPDATE STATUS TEXT (Learning vs Running)
+        self.status_display.setText(status.upper())
+        if "HỌC" in status.upper() or "LEARNING" in status.upper():
+             self.status_display.setStyleSheet(f"color: {COLOR_CYAN}; background-color: {COLOR_PANEL_BG}; border: 1px dashed {COLOR_CYAN};")
         else:
-            self.alert_label.setText("✓ Tỉnh táo")
-            self.alert_label.setStyleSheet("""
-                QLabel {
-                    background-color: #2ecc71;
-                    color: white;
-                    padding: 20px;
-                    border-radius: 5px;
-                    font-weight: bold;
-                }
+             self.status_display.setStyleSheet(f"color: #fff; background-color: #2e8b57; border: 1px solid #2ecc71;")
+
+        # 4. UPDATE ALERT BOX
+        if is_drowsy:
+            # CRITICAL STATE (Sci-Fi Red Glass)
+            self.alert_box.setStyleSheet(f"""
+                background-color: rgba(255, 0, 60, 0.25);
+                border: 2px solid {COLOR_RED};
+                border-radius: 6px;
             """)
-    
+            self.lbl_alert_text.setText(">> DANGER DETECTED <<")
+            self.lbl_alert_text.setStyleSheet(f"border: none; color: {COLOR_RED}; letter-spacing: 2px;")
+            
+            # Visual feedback on video border
+            self.video_label.setStyleSheet(f"border: 4px solid {COLOR_RED}; background-color: #000;")
+            
+        else:
+            # NORMAL STATE (Sci-Fi Green Glass)
+            self.alert_box.setStyleSheet(f"""
+                background-color: rgba(31, 204, 126, 0.1);
+                border: 2px solid {COLOR_GREEN};
+                border-radius: 6px;
+            """)
+            self.lbl_alert_text.setText("[ DRIVER ACTIVE ]")
+            self.lbl_alert_text.setStyleSheet(f"border: none; color: {COLOR_GREEN}; letter-spacing: 2px;")
+            
+            # Reset video border
+            self.video_label.setStyleSheet(f"border: 1px solid {COLOR_CYAN}; background-color: #000;")
+            
     def set_buttons_state(self, started):
         """
         Đặt trạng thái các nút
-        
-        Args:
-            started: True nếu đã bắt đầu, False nếu dừng
         """
         self.start_button.setEnabled(not started)
         self.stop_button.setEnabled(started)

@@ -73,10 +73,9 @@ class FaceDetector:
             else:
                 gray = frame.copy()
             
-            # Tạo một bản copy sạch cho dlib predictor
-            gray_for_predictor = np.empty_like(gray, dtype=np.uint8)
-            gray_for_predictor[:] = gray
-            gray_for_predictor = np.ascontiguousarray(gray_for_predictor, dtype=np.uint8)
+            # Đảm bảo gray là contiguous array cho dlib
+            if not gray.flags['C_CONTIGUOUS']:
+                gray = np.ascontiguousarray(gray, dtype=np.uint8)
             
             # Phát hiện khuôn mặt
             if self.face_cascade is not None:
@@ -121,11 +120,11 @@ class FaceDetector:
             return None
         
         print(f"  [DEBUG] ✓ Phát hiện khuôn mặt tại: ({face_rect.left()}, {face_rect.top()}, {face_rect.right()}, {face_rect.bottom()})")
-        print(f"  [DEBUG] Gray shape: {gray_for_predictor.shape}, dtype: {gray_for_predictor.dtype}, contiguous: {gray_for_predictor.flags['C_CONTIGUOUS']}")
+        print(f"  [DEBUG] Gray shape: {gray.shape}, dtype: {gray.dtype}, contiguous: {gray.flags['C_CONTIGUOUS']}")
         
         # Dự đoán 68 điểm landmarks với dlib predictor
         # Predictor hoạt động tốt với grayscale
-        shape = self.predictor(gray_for_predictor, face_rect)
+        shape = self.predictor(gray, face_rect)
         
         # Chuyển đổi sang list các cặp (x, y)
         landmarks = []
