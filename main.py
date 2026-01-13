@@ -41,7 +41,7 @@ class CameraWorker(QThread):
         # Khởi tạo các thành phần
         try:
             self.face_detector = FaceDetector(config.get_model_path())
-            self.drowsiness_detector = DrowsinessDetector(config.get_consecutive_frames())
+            self.drowsiness_detector = DrowsinessDetector(config)
             
             # Logger
             if config.is_log_enabled():
@@ -129,7 +129,6 @@ class CameraWorker(QThread):
                 warning = result['warning']
                 warning_reason = result['warning_reason']
                 status = result['status']
-                is_calibrated = result['is_calibrated']
                 yawn_count = result['yawn_count_total']
                 blink_rate = result['blink_rate']
                 

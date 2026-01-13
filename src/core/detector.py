@@ -61,11 +61,11 @@ class FaceDetector:
             return None
         
         try:
-            # Đảm bảo frame là contiguous và uint8
-            if not frame.flags['C_CONTIGUOUS']:
-                frame = np.ascontiguousarray(frame, dtype=np.uint8)
-            elif frame.dtype != np.uint8:
-                frame = frame.astype(np.uint8)
+            # # Đảm bảo frame là contiguous và uint8
+            # if not frame.flags['C_CONTIGUOUS']:
+            #     frame = np.ascontiguousarray(frame, dtype=np.uint8)
+            # elif frame.dtype != np.uint8:
+            #     frame = frame.astype(np.uint8)
             
             # Chuyển sang grayscale để phát hiện face
             if len(frame.shape) == 3:
