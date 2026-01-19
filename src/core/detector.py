@@ -9,6 +9,10 @@ import numpy as np
 class FaceDetector:
     """Class phát hiện khuôn mặt và landmarks"""
     
+    # Hằng số tối ưu
+    SCALE_WIDTH = 240  # Giảm xuống 240px để tăng tốc
+    SKIP_FRAMES = 2    # Chỉ detect face mỗi 2 frame
+    
     def __init__(self, predictor_path="shape_predictor_68_face_landmarks.dat"):
         """
         Khởi tạo detector
@@ -17,9 +21,17 @@ class FaceDetector:
         """
         print("Đang khởi tạo face detector...")
         
-        # Sử dụng OpenCV Haar Cascade thay vì dlib detector (ổn định hơn)
+        # Cache để tối ưu
+        self._frame_count = 0
+        self._last_face_rect = None
+        
+        # Sử dụng Haar Cascade (có sẵn, ổn định)
         cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
         self.face_cascade = cv2.CascadeClassifier(cascade_path)
+        
+        if self.face_cascade.empty():
+            print("⚠ Cảnh báo: Không tìm được cascade classifier")
+            self.face_cascade = None
         
         if self.face_cascade.empty():
             print("⚠ Không load được Haar Cascade, thử dùng dlib detector...")
@@ -61,53 +73,78 @@ class FaceDetector:
             return None
         
         try:
-            # Đảm bảo frame là contiguous và uint8
-            if not frame.flags['C_CONTIGUOUS']:
-                frame = np.ascontiguousarray(frame, dtype=np.uint8)
-            elif frame.dtype != np.uint8:
-                frame = frame.astype(np.uint8)
-            
-            # Chuyển sang grayscale để phát hiện face
+            # Chuyển sang grayscale (tối ưu: không copy nếu không cần)
             if len(frame.shape) == 3:
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             else:
-                gray = frame.copy()
+                gray = frame
             
-            # Tạo một bản copy sạch cho dlib predictor
-            gray_for_predictor = np.empty_like(gray, dtype=np.uint8)
-            gray_for_predictor[:] = gray
-            gray_for_predictor = np.ascontiguousarray(gray_for_predictor, dtype=np.uint8)
+            # Đảm bảo contiguous cho dlib
+            if not gray.flags['C_CONTIGUOUS']:
+                gray = np.ascontiguousarray(gray, dtype=np.uint8)
             
-            # Phát hiện khuôn mặt
-            if self.face_cascade is not None:
-                # Sử dụng OpenCV Haar Cascade
-                faces = self.face_cascade.detectMultiScale(
-                    gray,
-                    scaleFactor=1.1,
-                    minNeighbors=5,
-                    minSize=(30, 30),
-                    flags=cv2.CASCADE_SCALE_IMAGE
-                )
-                print(f"  [DEBUG] OpenCV detected {len(faces)} faces")
-                
-                if len(faces) == 0:
-                    return None
-                
-                # Chuyển đổi từ OpenCV rect sang dlib rectangle
-                x, y, w, h = faces[0]
-                face_rect = dlib.rectangle(int(x), int(y), int(x + w), int(y + h))
-                
+            self._frame_count += 1
+            
+            # Skip frame detection để tăng FPS (dùng cache)
+            if self._frame_count % self.SKIP_FRAMES != 0 and self._last_face_rect is not None:
+                face_rect = self._last_face_rect
             else:
-                # Fallback: Sử dụng dlib detector (có thể bị lỗi)
-                print("  [DEBUG] Sử dụng dlib detector...")
-                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) if len(frame.shape) == 3 else frame
-                rgb_frame = np.ascontiguousarray(rgb_frame, dtype=np.uint8)
-                faces = self.detector(rgb_frame, 0)
+                # Resize để tối ưu tốc độ nhận diện
+                h, w = gray.shape
+                scale_ratio = 1.0
                 
-                if len(faces) == 0:
-                    return None
+                if w > self.SCALE_WIDTH:
+                    scale_ratio = self.SCALE_WIDTH / float(w)
+                    new_h = int(h * scale_ratio)
+                    small_gray = cv2.resize(gray, (self.SCALE_WIDTH, new_h), interpolation=cv2.INTER_NEAREST)
+                else:
+                    small_gray = gray
+
+                # Phát hiện khuôn mặt
+                if self.face_cascade is not None:
+                    # Sử dụng LBP/Haar Cascade với ảnh nhỏ
+                    faces = self.face_cascade.detectMultiScale(
+                        small_gray,
+                        scaleFactor=1.2,  # Tăng lên để nhanh hơn
+                        minNeighbors=3,
+                        minSize=(24, 24),
+                        flags=cv2.CASCADE_SCALE_IMAGE
+                    )
+                    
+                    if len(faces) == 0:
+                        self._last_face_rect = None
+                        return None
+                    
+                    # Tìm khuôn mặt lớn nhất (người dùng chính)
+                    largest_face = max(faces, key=lambda rect: rect[2] * rect[3])
+                    x, y, fw, fh = largest_face
+                    
+                    # Scale tọa độ về ảnh gốc
+                    if scale_ratio != 1.0:
+                        inv_ratio = 1.0 / scale_ratio
+                        x = int(x * inv_ratio)
+                        y = int(y * inv_ratio)
+                        fw = int(fw * inv_ratio)
+                        fh = int(fh * inv_ratio)
+
+                    face_rect = dlib.rectangle(x, y, x + fw, y + fh)
+                    
+                else:
+                    # Fallback: Sử dụng dlib detector
+                    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) if len(frame.shape) == 3 else frame
+                    if not rgb_frame.flags['C_CONTIGUOUS']:
+                        rgb_frame = np.ascontiguousarray(rgb_frame, dtype=np.uint8)
+                    faces = self.detector(rgb_frame, 0)
+                    
+                    if len(faces) == 0:
+                        self._last_face_rect = None
+                        return None
+                    
+                    # Tìm khuôn mặt lớn nhất
+                    face_rect = max(faces, key=lambda rect: rect.width() * rect.height())
                 
-                face_rect = faces[0]
+                # Cache kết quả
+                self._last_face_rect = face_rect
             
         except Exception as e:
             print(f"Lỗi trong get_landmarks: {e}")
@@ -117,15 +154,10 @@ class FaceDetector:
         
         # Nếu không tìm thấy khuôn mặt
         if face_rect is None:
-            print("  [DEBUG] Không phát hiện được khuôn mặt nào")
             return None
         
-        print(f"  [DEBUG] ✓ Phát hiện khuôn mặt tại: ({face_rect.left()}, {face_rect.top()}, {face_rect.right()}, {face_rect.bottom()})")
-        print(f"  [DEBUG] Gray shape: {gray_for_predictor.shape}, dtype: {gray_for_predictor.dtype}, contiguous: {gray_for_predictor.flags['C_CONTIGUOUS']}")
-        
         # Dự đoán 68 điểm landmarks với dlib predictor
-        # Predictor hoạt động tốt với grayscale
-        shape = self.predictor(gray_for_predictor, face_rect)
+        shape = self.predictor(gray, face_rect)
         
         # Chuyển đổi sang list các cặp (x, y)
         landmarks = []

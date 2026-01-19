@@ -1,0 +1,23 @@
+[MESSAGES CONTROL]
+# Disable các warning không cần thiết
+disable=
+    no-member,
+    no-name-in-module,
+    import-error,
+    broad-except,
+    broad-exception-caught,
+    c-extension-no-member
+
+[TYPECHECK]
+# Ignore cv2 và PyQt5 dynamic modules
+ignored-modules=cv2,PyQt5,PyQt5.QtWidgets,PyQt5.QtCore,PyQt5.QtGui
+
+# Cho phép các module này có dynamic members  
+generated-members=cv2.*,PyQt5.*
+
+[BASIC]
+# Good variable names
+good-names=i,j,k,ex,_,e,f,x,y,w,h,id
+
+[FORMAT]
+max-line-length=120

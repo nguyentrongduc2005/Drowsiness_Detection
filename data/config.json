@@ -1,7 +1,7 @@
 {
   "eye_thresholds": {
     "ear_default": 0.25,
-    "consecutive_frames": 20,
+    "consecutive_frames": 45,
     "min_ear_threshold": 0.18,
     "max_ear_threshold": 0.3
   },
