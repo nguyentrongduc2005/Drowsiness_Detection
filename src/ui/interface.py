@@ -1,353 +1,692 @@
 """
-Module Giao diện: Thiết kế UI cho ứng dụng phát hiện buồn ngủ
-Style: Military Dashboard / Sci-Fi HUD
+UI Module: User interface design for drowsiness detection application
+Style: Military Dashboard / Sci-Fi HUD - Optimized Version
 """
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QLabel, QPushButton, QGroupBox, QStatusBar, QFrame,
-                             QSizePolicy, QGridLayout)
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPixmap, QFont, QPalette, QColor
+                             QSizePolicy, QGridLayout, QScrollArea, QMessageBox,
+                             QGraphicsDropShadowEffect)
+from PyQt5.QtCore import Qt, QPropertyAnimation, QEasingCurve
+from PyQt5.QtGui import QPixmap, QFont, QPalette, QColor, QLinearGradient, QPainter
 
-# --- Cyberpunk / Military Palette ---
-COLOR_BG_MAIN = "#000000"     # Deepest Black
-COLOR_PANEL_BG = "#0b0c10"    # Dark panel bg
-COLOR_CYAN = "#00f3ff"        # Primary Accent (Neon Cyan)
-COLOR_RED = "#ff003c"         # Alert Color
-COLOR_GREEN = "#1fcc7e"       # Safe Color
-COLOR_TEXT_DIM = "#8892b0"    # Dimmed text
-FONT_HUD = "Consolas"         # Monospaced font
+# --- Cyberpunk / Military Palette (Optimized) ---
+COLORS = {
+    'bg_main': "#050508",
+    'bg_panel': "#0c0c10", 
+    'bg_card': "#12121a",
+    'cyan': "#00e5ff",
+    'cyan_dim': "#00a0b0",
+    'red': "#ff1744",
+    'red_dim': "#b71c1c",
+    'green': "#00e676",
+    'green_dim': "#1b5e20",
+    'yellow': "#ffea00",
+    'orange': "#ff6d00",
+    'purple': "#d500f9",
+    'text_primary': "#e0e0e0",
+    'text_dim': "#6b7280",
+    'border': "#1e1e2e",
+    'border_accent': "#2a2a3e",
+}
+
+FONT_MAIN = "Segoe UI"
+FONT_MONO = "Consolas"
+
+
+class GlowFrame(QFrame):
+    """Frame with glow effect"""
+    def __init__(self, color=COLORS['cyan'], parent=None):
+        super().__init__(parent)
+        self.glow_color = color
+        self._setup_glow()
+    
+    def _setup_glow(self):
+        effect = QGraphicsDropShadowEffect(self)
+        effect.setBlurRadius(15)
+        effect.setColor(QColor(self.glow_color))
+        effect.setOffset(0, 0)
+        self.setGraphicsEffect(effect)
+
 
 class MainWindow(QMainWindow):
-    """
-    Class chính của giao diện ứng dụng (HUD Style)
-    """
+    """Main application window (Optimized HUD Style)"""
     
     def __init__(self):
         super().__init__()
-        self.init_ui()
+        self._init_styles()
+        self._init_ui()
         
-    def init_ui(self):
-        """Khởi tạo giao diện"""
-        self.setWindowTitle("SENTINEL :: OPERATOR INTERFACE")
-        # FIX UI 3: Fixed window size, smaller dimensions
-        self.setFixedSize(1200, 700)
-        
-        # --- GLOBAL STYLESHEET ---
+    def _init_styles(self):
+        """Initialize global styles"""
         self.setStyleSheet(f"""
             QMainWindow {{
-                background-color: {COLOR_BG_MAIN};
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 {COLORS['bg_main']}, stop:1 #0a0a12);
             }}
             QWidget {{
-                font-family: '{FONT_HUD}';
-                color: {COLOR_CYAN};
+                font-family: '{FONT_MAIN}';
+                color: {COLORS['text_primary']};
             }}
             QGroupBox {{
-                background-color: {COLOR_PANEL_BG};
-                border: 1px solid #1f2833;
-                border-top: 2px solid {COLOR_CYAN};
-                border-radius: 4px;
-                margin-top: 24px;
-                padding-top: 10px;
-                font-weight: bold;
-                text-transform: uppercase;
+                background-color: {COLORS['bg_card']};
+                border: 1px solid {COLORS['border']};
+                border-radius: 8px;
+                margin-top: 16px;
+                padding: 12px 8px 8px 8px;
+                font-size: 10px;
+                font-weight: 600;
                 letter-spacing: 1px;
             }}
             QGroupBox::title {{
                 subcontrol-origin: margin;
                 subcontrol-position: top left;
-                padding: 4px 10px;
-                background-color: {COLOR_CYAN};
+                padding: 4px 12px;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 {COLORS['cyan']}, stop:1 {COLORS['cyan_dim']});
                 color: #000;
+                border-radius: 4px;
                 font-weight: bold;
-                border: none;
+                font-size: 9px;
             }}
-            QLabel {{
-                border: none;
+            QLabel {{ border: none; }}
+            QScrollBar:vertical {{
+                background: {COLORS['bg_panel']};
+                width: 6px;
+                border-radius: 3px;
+                margin: 2px;
+            }}
+            QScrollBar::handle:vertical {{
+                background: {COLORS['cyan_dim']};
+                border-radius: 3px;
+                min-height: 20px;
+            }}
+            QScrollBar::handle:vertical:hover {{
+                background: {COLORS['cyan']};
+            }}
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+                height: 0;
             }}
         """)
         
-        # Widget chính
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
+    def _init_ui(self):
+        """Initialize user interface"""
+        self.setWindowTitle("SENTINEL :: DROWSINESS DETECTION SYSTEM")
+        self.setMinimumSize(1280, 800)
+        self.resize(1400, 900)
         
-        # Layout chính (Split 75% | 25%)
-        main_layout = QHBoxLayout(central_widget)
-        main_layout.setContentsMargins(10, 10, 10, 10)
-        main_layout.setSpacing(10)
+        central = QWidget()
+        self.setCentralWidget(central)
         
-        # =========================================================================
-        # LEFT PANEL: CAMERA FEED (HUD STYLE)
-        # =========================================================================
+        main_layout = QHBoxLayout(central)
+        main_layout.setContentsMargins(12, 12, 12, 12)
+        main_layout.setSpacing(12)
         
-        # Container for the video to handle the border and HUD elements
-        self.video_container = QFrame()
-        self.video_container.setFrameShape(QFrame.NoFrame)
-        # A glowing border effect for the frame
-        self.video_container.setStyleSheet(f"""
+        # === LEFT: VIDEO PANEL ===
+        self._create_video_panel(main_layout)
+        
+        # === RIGHT: CONTROL SIDEBAR ===
+        self._create_sidebar(main_layout)
+        
+        # === STATUS BAR ===
+        self._create_status_bar()
+
+    def _create_video_panel(self, parent_layout):
+        """Create video display panel"""
+        video_frame = QFrame()
+        video_frame.setStyleSheet(f"""
             QFrame {{
-                background-color: #000000;
-                border: 1px solid #1f2833;
-                border-radius: 2px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 {COLORS['bg_card']}, stop:1 {COLORS['bg_panel']});
+                border: 2px solid {COLORS['border_accent']};
+                border-radius: 12px;
             }}
         """)
         
-        video_layout = QVBoxLayout(self.video_container)
-        video_layout.setContentsMargins(2, 2, 2, 2)
+        layout = QVBoxLayout(video_frame)
+        layout.setContentsMargins(8, 8, 8, 8)
         
-        # The Video Label itself
+        # Header
+        header = QLabel("◉ LIVE FEED")
+        header.setFont(QFont(FONT_MONO, 10, QFont.Bold))
+        header.setStyleSheet(f"color: {COLORS['cyan']}; padding: 4px;")
+        layout.addWidget(header)
+        
+        # Video label
         self.video_label = QLabel()
-        # CRITICAL FIX: Set minimum size to avoid infinite growth loop
-        self.video_label.setMinimumSize(1, 1)
+        self.video_label.setMinimumSize(640, 480)
         self.video_label.setAlignment(Qt.AlignCenter)
         self.video_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.video_label.setStyleSheet("border: 1px solid #00f3ff; background-color: #000;")
-        # Placeholder text
-        self.video_label.setText("SIGNAL_LOST // WAITING_FOR_LINK...")
+        self.video_label.setStyleSheet(f"""
+            background: #000;
+            border: 1px solid {COLORS['border']};
+            border-radius: 8px;
+            color: {COLORS['text_dim']};
+            font-size: 14px;
+        """)
+        self.video_label.setText("⏳ AWAITING CAMERA INPUT...")
+        layout.addWidget(self.video_label)
         
-        # Add labels to make it look like a viewfinder
-        overlay_layout = QVBoxLayout(self.video_label)
-        overlay_layout.setContentsMargins(10, 10, 10, 10)
-        
-        top_hud = QHBoxLayout()
-        lbl_cam = QLabel("CAM_01: ACTIVE")
-        lbl_cam.setStyleSheet("background: transparent; color: #00f3ff; font-size: 10px;")
-        lbl_rec = QLabel("[ REC ]")
-        lbl_rec.setStyleSheet("background: transparent; color: #ff003c; font-size: 10px;")
-        top_hud.addWidget(lbl_cam)
-        top_hud.addStretch()
-        top_hud.addWidget(lbl_rec)
-        
-        overlay_layout.addLayout(top_hud)
-        overlay_layout.addStretch()
-        
-        bottom_hud = QHBoxLayout()
-        lbl_coords = QLabel("X: 000 | Y: 000")
-        lbl_coords.setStyleSheet("background: transparent; color: #00f3ff; font-size: 10px;")
-        bottom_hud.addWidget(lbl_coords)
-        bottom_hud.addStretch()
-        
-        overlay_layout.addLayout(bottom_hud)
-        
-        video_layout.addWidget(self.video_label)
-        
-        # Add to main layout (75%)
-        main_layout.addWidget(self.video_container, 75)
-        
-        # =========================================================================
-        # RIGHT PANEL: SIDEBAR DASHBOARD
-        # =========================================================================
-        
+        parent_layout.addWidget(video_frame, 70)
+        self.video_container = video_frame
+
+    def _create_sidebar(self, parent_layout):
+        """Create control sidebar with dynamic sizing"""
         sidebar = QFrame()
-        sidebar.setStyleSheet(f"background-color: {COLOR_PANEL_BG}; border-left: 2px solid #0b0c10;")
-        sidebar_layout = QVBoxLayout(sidebar)
-        sidebar_layout.setContentsMargins(15, 10, 15, 15)
-        sidebar_layout.setSpacing(20)
+        sidebar.setMinimumWidth(320)
+        sidebar.setMaximumWidth(400)
+        sidebar.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        sidebar.setStyleSheet(f"background: transparent;")
         
-        # 1. HEADER
-        lbl_header = QLabel("SENTINEL\nMONITORING SYSTEM")
-        lbl_header.setAlignment(Qt.AlignCenter)
-        lbl_header.setFont(QFont(FONT_HUD, 16, QFont.Bold))
-        lbl_header.setStyleSheet(f"""
-            color: {COLOR_CYAN};
-            border-bottom: 2px solid {COLOR_CYAN};
-            padding-bottom: 10px;
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll.setStyleSheet("background: transparent; border: none;")
+        
+        content = QWidget()
+        content.setStyleSheet("background: transparent;")
+        layout = QVBoxLayout(content)
+        layout.setContentsMargins(0, 0, 6, 0)
+        layout.setSpacing(8)
+        
+        # Header
+        self._create_header(layout)
+        
+        # Metrics
+        self._create_metrics_panel(layout)
+        
+        # Fatigue Status
+        self._create_fatigue_panel(layout)
+        
+        # Sleep Detection
+        self._create_sleep_panel(layout)
+        
+        # Alert Box
+        self._create_alert_box(layout)
+        
+        # Controls
+        self._create_controls(layout)
+        
+        # Calibration Info
+        self._create_calibration_info(layout)
+        
+        # Spacer at bottom
+        layout.addStretch(1)
+        
+        scroll.setWidget(content)
+        
+        sidebar_layout = QVBoxLayout(sidebar)
+        sidebar_layout.setContentsMargins(0, 0, 0, 0)
+        sidebar_layout.addWidget(scroll)
+        
+        parent_layout.addWidget(sidebar)
+
+    def _create_header(self, parent):
+        """Create header section"""
+        header = QLabel("◈ SENTINEL")
+        header.setAlignment(Qt.AlignCenter)
+        header.setFont(QFont(FONT_MONO, 12, QFont.Bold))
+        header.setMinimumHeight(32)
+        header.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        header.setStyleSheet(f"""
+            color: {COLORS['cyan']};
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                stop:0 transparent, stop:0.5 {COLORS['bg_card']}, stop:1 transparent);
+            border-bottom: 2px solid {COLORS['cyan']};
+            padding: 6px;
             letter-spacing: 2px;
         """)
-        sidebar_layout.addWidget(lbl_header)
+        parent.addWidget(header)
 
-        # 2. STATUS BOX
-        status_group = QGroupBox("SYSTEM STATUS")
-        vbox_status = QVBoxLayout()
+    def _create_metrics_panel(self, parent):
+        """Create telemetry metrics panel"""
+        group = QGroupBox("TELEMETRY")
+        group.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        grid = QGridLayout()
+        grid.setSpacing(8)
+        grid.setContentsMargins(8, 20, 8, 8)
+        
+        metrics = [
+            ("EAR", COLORS['cyan']),
+            ("MAR", COLORS['purple']),
+            ("FPS", COLORS['green']),
+            ("THR", COLORS['yellow'])
+        ]
+        
+        self.val_ear = self._create_metric_widget(grid, 0, 0, metrics[0])
+        self.val_mar = self._create_metric_widget(grid, 0, 1, metrics[1])
+        self.val_fps = self._create_metric_widget(grid, 1, 0, metrics[2])
+        self.val_thresh = self._create_metric_widget(grid, 1, 1, metrics[3])
+        
+        group.setLayout(grid)
+        parent.addWidget(group)
+    
+    def _create_metric_widget(self, grid, row, col, metric_info):
+        """Create individual metric widget"""
+        name, color = metric_info
+        
+        widget = QFrame()
+        widget.setStyleSheet(f"""
+            QFrame {{
+                background: {COLORS['bg_panel']};
+                border: 1px solid {color}40;
+                border-radius: 6px;
+                padding: 4px;
+            }}
+        """)
+        
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(8, 6, 8, 6)
+        layout.setSpacing(2)
+        
+        lbl = QLabel(name)
+        lbl.setFont(QFont(FONT_MONO, 9))
+        lbl.setStyleSheet(f"color: {COLORS['text_dim']}; border: none;")
+        
+        val = QLabel("0.00")
+        val.setFont(QFont(FONT_MONO, 18, QFont.Bold))
+        val.setStyleSheet(f"color: {color}; border: none;")
+        val.setAlignment(Qt.AlignCenter)
+        
+        layout.addWidget(lbl)
+        layout.addWidget(val)
+        
+        grid.addWidget(widget, row, col)
+        return val
+
+    def _create_fatigue_panel(self, parent):
+        """Create fatigue status panel"""
+        group = QGroupBox("FATIGUE STATUS")
+        group.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        layout = QVBoxLayout()
+        layout.setSpacing(4)
+        layout.setContentsMargins(8, 20, 8, 6)
+        
+        # State label
+        self.fatigue_state_label = QLabel("NORMAL")
+        self.fatigue_state_label.setAlignment(Qt.AlignCenter)
+        self.fatigue_state_label.setFont(QFont(FONT_MONO, 12, QFont.Bold))
+        self.fatigue_state_label.setMinimumHeight(28)
+        self.fatigue_state_label.setStyleSheet(f"""
+            color: {COLORS['green']};
+            background: rgba(0, 230, 118, 0.1);
+            border: 2px solid {COLORS['green']};
+            border-radius: 6px;
+            padding: 4px;
+        """)
+        layout.addWidget(self.fatigue_state_label)
+        
+        # Score bar container
+        score_container = QWidget()
+        score_layout = QHBoxLayout(score_container)
+        score_layout.setContentsMargins(0, 4, 0, 4)
+        score_layout.setSpacing(8)
+        
+        lbl = QLabel("SCORE")
+        lbl.setFont(QFont(FONT_MONO, 9))
+        lbl.setStyleSheet(f"color: {COLORS['text_dim']};")
+        lbl.setFixedWidth(45)
+        
+        self.fatigue_score_bar = QFrame()
+        self.fatigue_score_bar.setFixedHeight(16)
+        self.fatigue_score_bar.setStyleSheet(f"""
+            background: {COLORS['bg_panel']};
+            border: 1px solid {COLORS['border']};
+            border-radius: 8px;
+        """)
+        
+        self.fatigue_score_fill = QFrame(self.fatigue_score_bar)
+        self.fatigue_score_fill.setGeometry(0, 0, 0, 16)
+        self.fatigue_score_fill.setStyleSheet(f"""
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                stop:0 {COLORS['green']}, stop:1 {COLORS['cyan']});
+            border-radius: 8px;
+        """)
+        
+        self.fatigue_score_text = QLabel("0%")
+        self.fatigue_score_text.setFont(QFont(FONT_MONO, 11, QFont.Bold))
+        self.fatigue_score_text.setStyleSheet(f"color: {COLORS['green']};")
+        self.fatigue_score_text.setFixedWidth(40)
+        self.fatigue_score_text.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        
+        score_layout.addWidget(lbl)
+        score_layout.addWidget(self.fatigue_score_bar, 1)
+        score_layout.addWidget(self.fatigue_score_text)
+        layout.addWidget(score_container)
+        
+        # Session info
+        self.session_info = QLabel("Session: 00:00 | Blinks: 0/min")
+        self.session_info.setFont(QFont(FONT_MONO, 9))
+        self.session_info.setStyleSheet(f"color: {COLORS['text_dim']};")
+        self.session_info.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.session_info)
+        
+        group.setLayout(layout)
+        parent.addWidget(group)
+
+    def _create_sleep_panel(self, parent):
+        """Create sleep detection panel"""
+        group = QGroupBox("SLEEP DETECTION")
+        group.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        layout = QVBoxLayout()
+        layout.setSpacing(2)
+        layout.setContentsMargins(8, 20, 8, 6)
+        
+        # Status
+        self.sleep_status_label = QLabel("● NO EVENTS")
+        self.sleep_status_label.setFont(QFont(FONT_MONO, 11, QFont.Bold))
+        self.sleep_status_label.setStyleSheet(f"color: {COLORS['green']};")
+        layout.addWidget(self.sleep_status_label)
+        
+        # Stats row
+        stats_row = QWidget()
+        stats_layout = QHBoxLayout(stats_row)
+        stats_layout.setContentsMargins(0, 0, 0, 0)
+        stats_layout.setSpacing(4)
+        
+        self.sleep_stats_label = QLabel("Events: 0 | Total: 0.0s")
+        self.sleep_stats_label.setFont(QFont(FONT_MONO, 9))
+        self.sleep_stats_label.setStyleSheet(f"color: {COLORS['text_dim']};")
+        
+        self.sleep_risk_label = QLabel("LOW")
+        self.sleep_risk_label.setFont(QFont(FONT_MONO, 10, QFont.Bold))
+        self.sleep_risk_label.setStyleSheet(f"color: {COLORS['green']};")
+        
+        self.sleep_trend_label = QLabel("↔")
+        self.sleep_trend_label.setFont(QFont(FONT_MONO, 10))
+        self.sleep_trend_label.setStyleSheet(f"color: {COLORS['text_dim']};")
+        
+        stats_layout.addWidget(self.sleep_stats_label)
+        stats_layout.addStretch()
+        stats_layout.addWidget(self.sleep_risk_label)
+        stats_layout.addWidget(self.sleep_trend_label)
+        
+        layout.addWidget(stats_row)
+        
+        group.setLayout(layout)
+        parent.addWidget(group)
+
+    def _create_alert_box(self, parent):
+        """Create alert display box"""
+        self.alert_box = QFrame()
+        self.alert_box.setMinimumHeight(40)
+        self.alert_box.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        self.alert_box.setStyleSheet(f"""
+            background: rgba(0, 230, 118, 0.1);
+            border: 2px solid {COLORS['green']};
+            border-radius: 8px;
+        """)
+        
+        layout = QVBoxLayout(self.alert_box)
+        layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.lbl_alert_text = QLabel("✓ DRIVER ACTIVE")
+        self.lbl_alert_text.setAlignment(Qt.AlignCenter)
+        self.lbl_alert_text.setFont(QFont(FONT_MONO, 14, QFont.Bold))
+        self.lbl_alert_text.setStyleSheet(f"color: {COLORS['green']}; border: none;")
+        layout.addWidget(self.lbl_alert_text)
+        
+        # System status
         self.status_display = QLabel("STANDBY")
         self.status_display.setAlignment(Qt.AlignCenter)
-        self.status_display.setFont(QFont(FONT_HUD, 14, QFont.Bold))
-        self.status_display.setStyleSheet(f"color: white; background-color: #1a1a1a; padding: 10px; border-radius: 4px;")
-        vbox_status.addWidget(self.status_display)
-        status_group.setLayout(vbox_status)
-        sidebar_layout.addWidget(status_group)
+        self.status_display.setFont(QFont(FONT_MONO, 9))
+        self.status_display.setStyleSheet(f"color: {COLORS['text_dim']}; border: none;")
+        layout.addWidget(self.status_display)
         
-        # 3. METRICS READOUT (GRID)
-        metrics_group = QGroupBox("LIVE TELEMETRY")
-        grid_metrics = QGridLayout()
-        grid_metrics.setVerticalSpacing(15)
-        grid_metrics.setHorizontalSpacing(10)
-        
-        # Helper for metric item
-        def add_metric_widget(name, row, col):
-            container = QWidget()
-            vbox = QVBoxLayout(container)
-            vbox.setContentsMargins(0,0,0,0)
-            vbox.setSpacing(2)
-            
-            lbl_name = QLabel(name)
-            lbl_name.setFont(QFont(FONT_HUD, 9))
-            lbl_name.setStyleSheet(f"color: {COLOR_TEXT_DIM};")
-            lbl_name.setAlignment(Qt.AlignLeft)
-            
-            lbl_val = QLabel("--")
-            lbl_val.setFont(QFont(FONT_HUD, 18, QFont.Bold))
-            lbl_val.setStyleSheet(f"color: {COLOR_CYAN};")
-            lbl_val.setAlignment(Qt.AlignLeft)
-            
-            vbox.addWidget(lbl_name)
-            vbox.addWidget(lbl_val)
-            
-            grid_metrics.addWidget(container, row, col)
-            return lbl_val
+        parent.addWidget(self.alert_box)
 
-        self.val_ear = add_metric_widget("EAR (Eyes)", 0, 0)
-        self.val_mar = add_metric_widget("MAR (Mouth)", 0, 1)
-        self.val_fps = add_metric_widget("FPS_RATE", 1, 0)
-        self.val_thresh = add_metric_widget("THRESHOLD", 1, 1)
+    def _create_controls(self, parent):
+        """Create control buttons"""
+        group = QGroupBox("CONTROLS")
+        group.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        grid = QGridLayout()
+        grid.setSpacing(6)
+        grid.setContentsMargins(8, 20, 8, 8)
         
-        metrics_group.setLayout(grid_metrics)
-        sidebar_layout.addWidget(metrics_group)
-        
-        # 4. ALERT STATUS AREA
-        self.alert_box = QFrame()
-        self.alert_box.setFrameShape(QFrame.NoFrame)
-        # Initial Style (Sci-Fi Green Glass)
-        self.alert_box.setStyleSheet(f"""
-            background-color: rgba(31, 204, 126, 0.1);
-            border: 2px solid {COLOR_GREEN};
-            border-radius: 6px;
-        """)
-        alert_layout = QVBoxLayout(self.alert_box)
-        
-        self.lbl_alert_text = QLabel("STATUS :: ONLINE")
-        self.lbl_alert_text.setAlignment(Qt.AlignCenter)
-        self.lbl_alert_text.setFont(QFont(FONT_HUD, 14, QFont.Bold))
-        # Style text with neon glow look and spacing
-        self.lbl_alert_text.setStyleSheet(f"border: none; color: {COLOR_GREEN}; padding: 0px; letter-spacing: 2px;")
-        
-        alert_layout.addWidget(self.lbl_alert_text)
-        
-        sidebar_layout.addWidget(self.alert_box)
-        
-        # Spacer
-        sidebar_layout.addStretch()
-        
-        # 5. CONTROL PANEL (Buttons)
-        controls_group = QGroupBox("MANUAL OVERRIDE")
-        controls_layout = QVBoxLayout()
-        # FIX UI 1: Increase spacing between buttons
-        controls_layout.setSpacing(20)
-        
-        def create_btn(text, obj_name, bg_color):
-            btn = QPushButton(text)
-            btn.setObjectName(obj_name)
-            btn.setCursor(Qt.PointingHandCursor)
-            btn.setFixedHeight(45)
-            btn.setFont(QFont(FONT_HUD, 10, QFont.Bold))
-            btn.setStyleSheet(f"""
+        def make_btn_style(color):
+            return f"""
                 QPushButton {{
-                    background-color: {bg_color}33;  /* 33 denotes alpha transparency */
-                    border: 2px solid {bg_color};
-                    color: {bg_color};
-                    border-radius: 0px;
+                    background: rgba({int(color[1:3], 16)}, {int(color[3:5], 16)}, {int(color[5:7], 16)}, 0.1);
+                    border: 2px solid {color};
+                    color: {color};
+                    border-radius: 6px;
+                    font-family: '{FONT_MONO}';
+                    font-size: 10px;
+                    font-weight: bold;
+                    padding: 8px;
                 }}
                 QPushButton:hover {{
-                    background-color: {bg_color};
+                    background: {color};
+                    color: #000;
+                }}
+                QPushButton:pressed {{
+                    background: rgba({int(color[1:3], 16)}, {int(color[3:5], 16)}, {int(color[5:7], 16)}, 0.8);
                     color: #000;
                 }}
                 QPushButton:disabled {{
-                    border-color: #333;
-                    color: #333;
-                    background-color: transparent;
+                    border-color: {COLORS['border']};
+                    color: {COLORS['text_dim']};
+                    background: {COLORS['bg_panel']};
                 }}
-            """)
-            return btn
-
-        self.start_button = create_btn("INITIATE (START)", "btnStart", COLOR_CYAN)
-        self.stop_button = create_btn("TERMINATE (STOP)", "btnStop", COLOR_RED)
-        self.reset_button = create_btn("RE-CALIBRATE", "btnReset", "#f39c12") # Orange
+            """
         
-        # Logic initial state
+        self.start_button = QPushButton("▶ START")
+        self.start_button.setMinimumHeight(32)
+        self.start_button.setCursor(Qt.PointingHandCursor)
+        self.start_button.setStyleSheet(make_btn_style(COLORS['cyan']))
+        
+        self.stop_button = QPushButton("■ STOP")
+        self.stop_button.setMinimumHeight(32)
+        self.stop_button.setCursor(Qt.PointingHandCursor)
+        self.stop_button.setStyleSheet(make_btn_style(COLORS['red']))
         self.stop_button.setEnabled(False)
         
-        controls_layout.addWidget(self.start_button)
-        controls_layout.addWidget(self.stop_button)
-        controls_layout.addWidget(self.reset_button)
+        self.calibrate_button = QPushButton("⚙ CALIBRATE")
+        self.calibrate_button.setMinimumHeight(32)
+        self.calibrate_button.setCursor(Qt.PointingHandCursor)
+        self.calibrate_button.setStyleSheet(make_btn_style(COLORS['purple']))
         
-        controls_group.setLayout(controls_layout)
-        sidebar_layout.addWidget(controls_group)
+        self.reset_button = QPushButton("↻ RESET")
+        self.reset_button.setMinimumHeight(32)
+        self.reset_button.setCursor(Qt.PointingHandCursor)
+        self.reset_button.setStyleSheet(make_btn_style(COLORS['orange']))
         
-        # Add sidebar to main layout (25%)
-        main_layout.addWidget(sidebar, 25)
+        grid.addWidget(self.start_button, 0, 0)
+        grid.addWidget(self.stop_button, 0, 1)
+        grid.addWidget(self.calibrate_button, 1, 0)
+        grid.addWidget(self.reset_button, 1, 1)
         
-        # Status Bar
+        group.setLayout(grid)
+        parent.addWidget(group)
+
+    def _create_calibration_info(self, parent):
+        """Create calibration info label"""
+        self.calibration_info_label = QLabel("⚠ Not calibrated - Press CALIBRATE")
+        self.calibration_info_label.setFont(QFont(FONT_MONO, 9))
+        self.calibration_info_label.setStyleSheet(f"""
+            color: {COLORS['yellow']};
+            background: {COLORS['yellow']}10;
+            border: 1px solid {COLORS['yellow']}40;
+            border-radius: 6px;
+            padding: 8px;
+        """)
+        self.calibration_info_label.setAlignment(Qt.AlignCenter)
+        self.calibration_info_label.setWordWrap(True)
+        parent.addWidget(self.calibration_info_label)
+
+    def _create_status_bar(self):
+        """Create status bar"""
         self.statusBar = QStatusBar()
-        self.statusBar.setStyleSheet(f"color: {COLOR_TEXT_DIM}; background-color: {COLOR_PANEL_BG}; font-size: 11px;")
+        self.statusBar.setStyleSheet(f"""
+            QStatusBar {{
+                color: {COLORS['text_dim']};
+                background: {COLORS['bg_panel']};
+                border-top: 1px solid {COLORS['border']};
+                font-family: '{FONT_MONO}';
+                font-size: 10px;
+                padding: 4px;
+            }}
+        """)
         self.setStatusBar(self.statusBar)
-        self.statusBar.showMessage("SYSTEM INITIALIZED. STANDBY MOOE.")
+        self.statusBar.showMessage("◉ SYSTEM READY")
 
-    def update_view(self, qt_image, ear, threshold, status, is_drowsy=False, fps=0):
-        """
-        Cập nhật giao diện với frame và thông số mới
-        """
-        # 1. UPDATE VIDEO FEED
+    # =========================================================================
+    # UPDATE METHODS
+    # =========================================================================
+    
+    def update_view(self, qt_image, ear, mar, threshold, status, is_drowsy=False, fps=0, 
+                    fatigue_state=None, fatigue_score=0, blink_rate=0, session_duration=0,
+                    sleep_info=None):
+        """Update user interface"""
+        # Video
         if qt_image is not None:
-            # Scale mode logic:
-            # Use KeepAspectRatio to ensure the image isn't distorted.
             pixmap = QPixmap.fromImage(qt_image)
-            
-            # Use label dimensions but ensure we don't cause overflow
-            w = self.video_label.width() - 2  # Subtract padding/border width
-            h = self.video_label.height() - 2
-            
+            w, h = self.video_label.width() - 4, self.video_label.height() - 4
             if w > 0 and h > 0:
-                # Scale
-                scaled_pixmap = pixmap.scaled(w, h, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                self.video_label.setPixmap(scaled_pixmap)
-            
-        # 2. UPDATE METRICS
+                self.video_label.setPixmap(
+                    pixmap.scaled(w, h, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        
+        # Metrics
         self.val_ear.setText(f"{ear:.3f}")
-        self.val_thresh.setText(f"{threshold:.3f}")
+        self.val_mar.setText(f"{mar:.3f}")
         self.val_fps.setText(f"{int(fps)}")
-        # Assuming MAR is not passed in checking args, if it is passed, add it.
-        # The calling signature is: update_view(self, qt_image, ear, threshold, status, is_drowsy, fps)
-        # It seems 'mar' is missing from the list. If main.py sends it or calculates it, we need it.
-        # For now, leaving MAR as placeholder or extracting from somewhere if possible.
-        # Actually in main.py call is: self.window.update_view(qt_image, ear, threshold, status, is_drowsy, self.fps)
-        self.val_mar.setText("N/A") 
-
-        # 3. UPDATE STATUS TEXT (Learning vs Running)
-        self.status_display.setText(status.upper())
-        if "HỌC" in status.upper() or "LEARNING" in status.upper():
-             self.status_display.setStyleSheet(f"color: {COLOR_CYAN}; background-color: {COLOR_PANEL_BG}; border: 1px dashed {COLOR_CYAN};")
+        self.val_thresh.setText(f"{threshold:.3f}")
+        
+        # Status display
+        status_upper = status.upper()
+        self.status_display.setText(status_upper)
+        if "LEARNING" in status_upper:
+            self.status_display.setStyleSheet(f"color: {COLORS['cyan']}; border: none;")
         else:
-             self.status_display.setStyleSheet(f"color: #fff; background-color: #2e8b57; border: 1px solid #2ecc71;")
-
-        # 4. UPDATE ALERT BOX
-        if is_drowsy:
-            # CRITICAL STATE (Sci-Fi Red Glass)
-            self.alert_box.setStyleSheet(f"""
-                background-color: rgba(255, 0, 60, 0.25);
-                border: 2px solid {COLOR_RED};
-                border-radius: 6px;
-            """)
-            self.lbl_alert_text.setText(">> DANGER DETECTED <<")
-            self.lbl_alert_text.setStyleSheet(f"border: none; color: {COLOR_RED}; letter-spacing: 2px;")
-            
-            # Visual feedback on video border
-            self.video_label.setStyleSheet(f"border: 4px solid {COLOR_RED}; background-color: #000;")
-            
+            self.status_display.setStyleSheet(f"color: {COLORS['text_dim']}; border: none;")
+        
+        # Fatigue & Sleep
+        self._update_fatigue_display(fatigue_state, fatigue_score, blink_rate, session_duration)
+        self._update_sleep_display(sleep_info)
+        
+        # Alert state
+        self._update_alert_state(fatigue_state, is_drowsy, sleep_info)
+    
+    def _update_alert_state(self, fatigue_state, is_drowsy, sleep_info):
+        """Update alert box based on state"""
+        is_sleeping = sleep_info.get('is_sleeping', False) if sleep_info else False
+        alert_msg = sleep_info.get('sleep_alert_message', '') if sleep_info else ''
+        
+        if is_sleeping or fatigue_state == "CRITICAL":
+            msg = alert_msg if is_sleeping and alert_msg else "⚠ CRITICAL - STOP NOW"
+            self._set_alert_style(COLORS['red'], msg, pulse=True)
+        elif fatigue_state == "DROWSY" or is_drowsy:
+            self._set_alert_style(COLORS['orange'], "⚡ DROWSY DETECTED")
+        elif fatigue_state == "TIRED":
+            self._set_alert_style(COLORS['yellow'], "◐ TIRED")
         else:
-            # NORMAL STATE (Sci-Fi Green Glass)
-            self.alert_box.setStyleSheet(f"""
-                background-color: rgba(31, 204, 126, 0.1);
-                border: 2px solid {COLOR_GREEN};
-                border-radius: 6px;
-            """)
-            self.lbl_alert_text.setText("[ DRIVER ACTIVE ]")
-            self.lbl_alert_text.setStyleSheet(f"border: none; color: {COLOR_GREEN}; letter-spacing: 2px;")
-            
-            # Reset video border
-            self.video_label.setStyleSheet(f"border: 1px solid {COLOR_CYAN}; background-color: #000;")
-            
+            self._set_alert_style(COLORS['green'], "✓ DRIVER ACTIVE")
+    
+    def _set_alert_style(self, color, text, pulse=False):
+        """Set alert box style"""
+        border_width = 3 if pulse else 2
+        r, g, b = int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
+        self.alert_box.setStyleSheet(f"""
+            background: rgba({r}, {g}, {b}, 0.1);
+            border: {border_width}px solid {color};
+            border-radius: 8px;
+        """)
+        self.lbl_alert_text.setText(text)
+        self.lbl_alert_text.setStyleSheet(f"color: {color}; border: none;")
+        
+        # Update video border
+        self.video_label.setStyleSheet(f"""
+            background: #000;
+            border: {border_width}px solid {color};
+            border-radius: 8px;
+        """)
+    
+    def _update_sleep_display(self, sleep_info):
+        """Update Sleep Detection display"""
+        if not sleep_info:
+            return
+        
+        is_sleeping = sleep_info.get('is_sleeping', False)
+        event_type = sleep_info.get('sleep_event_type')
+        duration = sleep_info.get('sleep_duration', 0)
+        stats = sleep_info.get('sleep_stats', {})
+        risk = sleep_info.get('sleep_risk', 'low')
+        trend = sleep_info.get('sleep_trend', 'stable')
+        pre_sleep = sleep_info.get('pre_sleep_warning', False)
+        
+        risk_colors = {'low': COLORS['green'], 'moderate': COLORS['yellow'],
+                       'high': COLORS['orange'], 'critical': COLORS['red']}
+        trend_icons = {'improving': '↓', 'stable': '↔', 'worsening': '↑'}
+        
+        risk_color = risk_colors.get(risk, COLORS['green'])
+        trend_icon = trend_icons.get(trend, '↔')
+        trend_color = COLORS['green'] if trend == 'improving' else (
+            COLORS['red'] if trend == 'worsening' else COLORS['text_dim'])
+        
+        # Status
+        if is_sleeping:
+            event_names = {'microsleep': 'MICROSLEEP', 'near_sleep': 'NEAR-SLEEP', 'sleep_episode': 'SLEEPING'}
+            self.sleep_status_label.setText(f"● {event_names.get(event_type, 'SLEEP')} ({duration:.1f}s)")
+            self.sleep_status_label.setStyleSheet(f"color: {COLORS['red']};")
+        elif pre_sleep:
+            self.sleep_status_label.setText("⚠ PRE-SLEEP WARNING")
+            self.sleep_status_label.setStyleSheet(f"color: {COLORS['yellow']};")
+        elif stats.get('total_events', 0) > 0:
+            self.sleep_status_label.setText(f"● {stats.get('total_events')} EVENT(S)")
+            self.sleep_status_label.setStyleSheet(f"color: {risk_color};")
+        else:
+            self.sleep_status_label.setText("● NO EVENTS")
+            self.sleep_status_label.setStyleSheet(f"color: {COLORS['green']};")
+        
+        # Stats
+        self.sleep_stats_label.setText(
+            f"Events: {stats.get('total_events', 0)} | Total: {stats.get('total_sleep_time', 0):.1f}s")
+        self.sleep_risk_label.setText(risk.upper())
+        self.sleep_risk_label.setStyleSheet(f"color: {risk_color};")
+        self.sleep_trend_label.setText(trend_icon)
+        self.sleep_trend_label.setStyleSheet(f"color: {trend_color};")
+    
+    def _update_fatigue_display(self, state, score, blink_rate, session_duration):
+        """Update FatigueState display"""
+        state = state or "NORMAL"
+        
+        colors = {"ALERT": COLORS['green'], "NORMAL": COLORS['green'],
+                  "TIRED": COLORS['yellow'], "DROWSY": COLORS['orange'],
+                  "CRITICAL": COLORS['red']}
+        color = colors.get(state, COLORS['green'])
+        r, g, b = int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
+        
+        self.fatigue_state_label.setText(state)
+        self.fatigue_state_label.setStyleSheet(f"""
+            color: {color};
+            background: rgba({r}, {g}, {b}, 0.1);
+            border: 2px solid {color};
+            border-radius: 6px;
+            padding: 4px;
+        """)
+        
+        # Score bar
+        bar_width = max(0, int((score / 100) * self.fatigue_score_bar.width()))
+        self.fatigue_score_fill.setGeometry(0, 0, bar_width, 16)
+        
+        # Gradient based on score
+        if score < 30:
+            gradient = f"qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 {COLORS['green']},stop:1 {COLORS['cyan']})"
+        elif score < 60:
+            gradient = f"qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 {COLORS['yellow']},stop:1 {COLORS['orange']})"
+        else:
+            gradient = f"qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 {COLORS['orange']},stop:1 {COLORS['red']})"
+        
+        self.fatigue_score_fill.setStyleSheet(f"background: {gradient}; border-radius: 8px;")
+        self.fatigue_score_text.setText(f"{int(score)}%")
+        self.fatigue_score_text.setStyleSheet(f"color: {color};")
+        
+        # Session info
+        mins, secs = int(session_duration // 60), int(session_duration % 60)
+        self.session_info.setText(f"Session: {mins:02d}:{secs:02d} | Blinks: {blink_rate:.0f}/min")
+    
     def set_buttons_state(self, started):
-        """
-        Đặt trạng thái các nút
-        """
+        """Set buttons enabled state"""
         self.start_button.setEnabled(not started)
         self.stop_button.setEnabled(started)

@@ -1,1 +1,1 @@
-# File này để giữ thư mục ui trong git
+# This file keeps the ui directory in git

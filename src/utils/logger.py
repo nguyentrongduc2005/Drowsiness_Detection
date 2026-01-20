@@ -1,5 +1,5 @@
 """
-Module Logger: Ghi lại sự kiện và lưu log
+Logger Module: Record events and save logs
 """
 import csv
 import os
@@ -8,92 +8,92 @@ from datetime import datetime
 
 class EventLogger:
     """
-    Class ghi lại các sự kiện trong quá trình phát hiện buồn ngủ
+    Class to record events during drowsiness detection
     """
     
     def __init__(self, log_dir="logs"):
         """
-        Khởi tạo logger
+        Initialize logger
         
         Args:
-            log_dir: Thư mục lưu file log
+            log_dir: Directory to save log files
         """
         self.log_dir = log_dir
         
-        # Tạo thư mục logs nếu chưa tồn tại
+        # Create logs directory if it doesn't exist
         if not os.path.exists(log_dir):
             os.makedirs(log_dir)
         
-        # Tạo tên file log theo ngày
+        # Create log filename with timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.log_file = os.path.join(log_dir, f"drowsiness_log_{timestamp}.csv")
         
-        # Khởi tạo file CSV với header
+        # Initialize CSV file with header
         self._init_csv()
         
     def _init_csv(self):
-        """Khởi tạo file CSV với header"""
+        """Initialize CSV file with header"""
         with open(self.log_file, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
-            writer.writerow(['Thời gian', 'EAR', 'Ngưỡng', 'Trạng thái', 'Cảnh báo'])
+            writer.writerow(['Timestamp', 'EAR', 'Threshold', 'Status', 'Alert'])
     
     def log_event(self, ear, threshold, status, is_drowsy=False):
         """
-        Ghi lại một sự kiện
+        Log an event
         
         Args:
-            ear: Giá trị EAR
-            threshold: Ngưỡng hiện tại
-            status: Trạng thái hệ thống
-            is_drowsy: True nếu phát hiện buồn ngủ
+            ear: EAR value
+            threshold: Current threshold
+            status: System status
+            is_drowsy: True if drowsiness detected
         """
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
-        # Chuyển đổi is_drowsy thành text
-        alert = "BUỒN NGỦ" if is_drowsy else "Tỉnh táo"
+        # Convert is_drowsy to text
+        alert = "DROWSY" if is_drowsy else "Alert"
         
-        # Ghi vào CSV
+        # Write to CSV
         try:
             with open(self.log_file, 'a', newline='', encoding='utf-8') as f:
                 writer = csv.writer(f)
                 writer.writerow([timestamp, f"{ear:.3f}", f"{threshold:.3f}", status, alert])
         except Exception as e:
-            print(f"Lỗi khi ghi log: {e}")
+            print(f"Error writing log: {e}")
     
     def log_alert(self, ear, threshold):
         """
-        Ghi lại sự kiện cảnh báo buồn ngủ
+        Log a drowsiness alert event
         
         Args:
-            ear: Giá trị EAR
-            threshold: Ngưỡng hiện tại
+            ear: EAR value
+            threshold: Current threshold
         """
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         alert_file = os.path.join(self.log_dir, "alerts.txt")
         
         try:
             with open(alert_file, 'a', encoding='utf-8') as f:
-                f.write(f"[{timestamp}] CẢNH BÁO: EAR={ear:.3f}, Ngưỡng={threshold:.3f}\n")
+                f.write(f"[{timestamp}] ALERT: EAR={ear:.3f}, Threshold={threshold:.3f}\n")
         except Exception as e:
-            print(f"Lỗi khi ghi alert: {e}")
+            print(f"Error writing alert: {e}")
     
     def get_log_file_path(self):
         """
-        Lấy đường dẫn file log hiện tại
+        Get current log file path
         
         Returns:
-            str: Đường dẫn file log
+            str: Log file path
         """
         return self.log_file
 
 
 class StatisticsTracker:
     """
-    Class theo dõi thống kê trong phiên làm việc
+    Class to track statistics during work session
     """
     
     def __init__(self):
-        """Khởi tạo tracker"""
+        """Initialize tracker"""
         self.total_frames = 0
         self.drowsy_frames = 0
         self.alert_count = 0
@@ -101,10 +101,10 @@ class StatisticsTracker:
         
     def update(self, is_drowsy):
         """
-        Cập nhật thống kê
+        Update statistics
         
         Args:
-            is_drowsy: True nếu frame hiện tại phát hiện buồn ngủ
+            is_drowsy: True if current frame detects drowsiness
         """
         self.total_frames += 1
         
@@ -114,10 +114,10 @@ class StatisticsTracker:
     
     def get_statistics(self):
         """
-        Lấy thống kê tổng hợp
+        Get aggregate statistics
         
         Returns:
-            dict: Dictionary chứa các thống kê
+            dict: Dictionary containing statistics
         """
         session_duration = (datetime.now() - self.session_start).total_seconds()
         
@@ -134,22 +134,22 @@ class StatisticsTracker:
         }
     
     def reset(self):
-        """Reset thống kê"""
+        """Reset statistics"""
         self.total_frames = 0
         self.drowsy_frames = 0
         self.alert_count = 0
         self.session_start = datetime.now()
     
     def print_summary(self):
-        """In ra tóm tắt thống kê"""
+        """Print statistics summary"""
         stats = self.get_statistics()
         
         print("\n" + "="*50)
-        print("THỐNG KÊ PHIÊN LÀM VIỆC")
+        print("SESSION STATISTICS")
         print("="*50)
-        print(f"Thời gian: {stats['session_duration']:.0f} giây")
-        print(f"Tổng số frame: {stats['total_frames']}")
-        print(f"Frame buồn ngủ: {stats['drowsy_frames']}")
-        print(f"Số lần cảnh báo: {stats['alert_count']}")
-        print(f"Tỷ lệ buồn ngủ: {stats['drowsy_percentage']:.2f}%")
+        print(f"Duration: {stats['session_duration']:.0f} seconds")
+        print(f"Total frames: {stats['total_frames']}")
+        print(f"Drowsy frames: {stats['drowsy_frames']}")
+        print(f"Alert count: {stats['alert_count']}")
+        print(f"Drowsy percentage: {stats['drowsy_percentage']:.2f}%")
         print("="*50 + "\n")

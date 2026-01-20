@@ -1,1 +1,1 @@
-# File này để giữ thư mục src trong git
+# This file keeps the src directory in git

@@ -1,1 +1,1 @@
-# File này để giữ thư mục utils trong git
+# This file keeps the utils directory in git

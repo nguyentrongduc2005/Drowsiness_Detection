@@ -1,0 +1,14 @@
+[MASTER]
+# Ignore cv2 and PyQt5 import errors (they work at runtime)
+extension-pkg-whitelist=cv2,PyQt5
+
+[MESSAGES CONTROL]
+# Disable false positives for cv2 and PyQt5
+disable=no-member,
+        no-name-in-module,
+        import-error,
+        c-extension-no-member
+
+[TYPECHECK]
+# cv2 and PyQt5 are C extensions
+generated-members=cv2.*,PyQt5.*

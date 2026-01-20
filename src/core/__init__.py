@@ -1,1 +1,1 @@
-# File này để giữ thư mục core trong git
+# This file keeps the core directory in git

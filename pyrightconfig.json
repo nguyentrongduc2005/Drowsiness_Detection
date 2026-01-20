@@ -1,0 +1,11 @@
+{
+  "reportMissingModuleSource": false,
+  "reportGeneralTypeIssues": false,
+  "reportOptionalMemberAccess": false,
+  "reportUnusedVariable": "warning",
+  "reportUnusedImport": "warning",
+  "reportMissingImports": false,
+  "reportAttributeAccessIssue": false,
+  "pythonVersion": "3.12",
+  "typeCheckingMode": "off"
+}

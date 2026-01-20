@@ -1,5 +1,5 @@
 """
-Module Config: Đọc và quản lý cấu hình
+Config Module: Read and manage configuration
 """
 import json
 import os
@@ -7,43 +7,43 @@ import os
 
 class Config:
     """
-    Class quản lý cấu hình từ file config.json
+    Class to manage configuration from config.json file
     """
     
     def __init__(self, config_path="data/config.json"):
         """
-        Khởi tạo Config
+        Initialize Config
         
         Args:
-            config_path: Đường dẫn tới file config.json
+            config_path: Path to config.json file
         """
         self.config_path = config_path
         self.config = self._load_config()
     
     def _load_config(self):
         """
-        Đọc file config.json
+        Read config.json file
         
         Returns:
-            dict: Dictionary chứa cấu hình
+            dict: Dictionary containing configuration
         """
         try:
             with open(self.config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
             return config
         except FileNotFoundError:
-            print(f"Không tìm thấy file config: {self.config_path}")
+            print(f"Config file not found: {self.config_path}")
             return self._get_default_config()
         except json.JSONDecodeError as e:
-            print(f"Lỗi đọc file config: {e}")
+            print(f"Error reading config file: {e}")
             return self._get_default_config()
     
     def _get_default_config(self):
         """
-        Lấy cấu hình mặc định
+        Get default configuration
         
         Returns:
-            dict: Dictionary cấu hình mặc định
+            dict: Default configuration dictionary
         """
         return {
             "eye_thresholds": {
@@ -75,14 +75,14 @@ class Config:
     
     def get(self, key, default=None):
         """
-        Lấy giá trị config theo key
+        Get config value by key
         
         Args:
-            key: Key cần lấy (có thể dùng dạng "section.key")
-            default: Giá trị mặc định nếu không tìm thấy
+            key: Key to retrieve (can use "section.key" format)
+            default: Default value if not found
             
         Returns:
-            Giá trị config hoặc default
+            Config value or default
         """
         keys = key.split('.')
         value = self.config
@@ -95,54 +95,54 @@ class Config:
             return default
     
     def get_ear_default(self):
-        """Lấy ngưỡng EAR mặc định"""
+        """Get default EAR threshold"""
         return self.get('eye_thresholds.ear_default', 0.25)
     
     def get_consecutive_frames(self):
-        """Lấy số frame liên tiếp để cảnh báo"""
+        """Get consecutive frames for alert"""
         return self.get('eye_thresholds.consecutive_frames', 20)
     
     def get_window_size(self):
-        """Lấy kích thước cửa sổ cho SmartThreshold"""
+        """Get window size for SmartThreshold"""
         return self.get('smart_threshold.window_size', 150)
     
     def get_min_samples(self):
-        """Lấy số mẫu tối thiểu để học"""
+        """Get minimum samples for learning"""
         return self.get('smart_threshold.min_samples_for_learning', 100)
     
     def get_model_path(self):
-        """Lấy đường dẫn model"""
+        """Get model path"""
         return self.get('paths.model_path', 'data/shape_predictor_68_face_landmarks.dat')
     
     def get_alarm_sound(self):
-        """Lấy đường dẫn file âm thanh cảnh báo"""
+        """Get alarm sound file path"""
         return self.get('paths.alarm_sound', 'data/alarm.wav')
     
     def get_camera_id(self):
-        """Lấy ID camera"""
+        """Get camera ID"""
         return self.get('settings.camera_id', 0)
     
     def get_show_landmarks(self):
-        """Kiểm tra có hiển thị landmarks không"""
+        """Check if landmarks should be displayed"""
         return self.get('settings.show_landmarks', True)
     
     def is_log_enabled(self):
-        """Kiểm tra có bật log không"""
+        """Check if logging is enabled"""
         return self.get('settings.log_enabled', True)
     
     def save_config(self):
-        """Lưu cấu hình vào file"""
+        """Save configuration to file"""
         try:
             with open(self.config_path, 'w', encoding='utf-8') as f:
                 json.dump(self.config, f, indent=2, ensure_ascii=False)
             return True
         except Exception as e:
-            print(f"Lỗi khi lưu config: {e}")
+            print(f"Error saving config: {e}")
             return False
 
 
 def load_config():
-    """Hàm tương thích ngược"""
+    """Backward compatibility function"""
     config_path = os.path.join("data", "config.json")
     with open(config_path, "r") as f:
         return json.load(f)
