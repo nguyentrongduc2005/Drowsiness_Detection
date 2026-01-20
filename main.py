@@ -159,12 +159,22 @@ class CameraWorker(QThread):
                     continue
                 
                 # === NORMAL MODE ===
-                # Get raw landmarks for head pose estimation
-                raw_landmarks = self.face_detector.get_raw_landmarks()
-                self.drowsiness_detector.set_landmarks(raw_landmarks)
+                # Get image dimensions
+                h, w = frame.shape[:2]
+                
+                # Get head pose from detector
+                head_pose = self.face_detector.get_head_pose(w, h)
                 
                 # === P2: Calculate EAR, MAR and update threshold ===
-                result = self.drowsiness_detector.process(left_eye, right_eye, mouth)
+                # Pass face detection status and image dimensions
+                result = self.drowsiness_detector.process(
+                    left_eye, 
+                    right_eye, 
+                    mouth,
+                    face_detected=True,
+                    img_w=w,
+                    img_h=h
+                )
                 
                 ear = result['ear']
                 mar = result['mar']
@@ -220,8 +230,9 @@ class CameraWorker(QThread):
                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
                 
                 # Draw info on frame
+                head_pose = result.get('head_pose', {})
                 self._draw_info_on_frame(frame, ear, mar, threshold, status, warning, warning_reason, 
-                                        is_yawning, result['counter'], result['yawn_counter'], yawn_count, blink_rate)
+                                        is_yawning, result['counter'], result['yawn_counter'], yawn_count, blink_rate, head_pose)
                 
                 # Log event
                 if self.logger and self.frame_count % 30 == 0:  # Log every 30 frames
@@ -284,9 +295,9 @@ class CameraWorker(QThread):
             self.stats_tracker.print_summary()
     
     def _draw_info_on_frame(self, frame, ear, mar, threshold, status, warning, warning_reason, 
-                           is_yawning, counter, yawn_counter, yawn_count, blink_rate):
+                           is_yawning, counter, yawn_counter, yawn_count, blink_rate, head_pose=None):
         """
-        Draw info on frame
+        Draw info on frame - ENHANCED with head pose
         
         Args:
             frame: Image frame
@@ -301,6 +312,7 @@ class CameraWorker(QThread):
             yawn_counter: Consecutive frames yawning
             yawn_count: Total yawns in 60s
             blink_rate: Blink rate (times/minute)
+            head_pose: Head pose data (pitch, yaw, roll)
         """
         # Colors
         color = (0, 0, 255) if warning else (0, 255, 0)
@@ -316,6 +328,20 @@ class CameraWorker(QThread):
         # Threshold
         cv2.putText(frame, f"Threshold: {threshold:.3f}", (10, 90), 
                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+        
+        # Head Pose (if available)
+        if head_pose and head_pose.get('success'):
+            pitch = head_pose.get('pitch', 0)
+            yaw = head_pose.get('yaw', 0)
+            nodding = head_pose.get('nodding', False)
+            
+            head_color = (0, 0, 255) if nodding else (0, 255, 0)
+            cv2.putText(frame, f"Head: P={pitch:.0f}° Y={yaw:.0f}°", (10, 120),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, head_color, 2)
+            
+            if nodding:
+                cv2.putText(frame, "HEAD NODDING!", (10, 150),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
         
         # Yawn count
         yawn_color = (0, 165, 255) if yawn_count >= 3 else (255, 255, 255)
@@ -425,7 +451,10 @@ class CameraWorker(QThread):
         elif state == "closed_eyes":
             instruction = "Close your eyes gently (like when drowsy)"
         elif state == "yawning":
-            instruction = "Open mouth wide / Yawn"
+            instruction = "Open mouth wide / Yawn - KEEP EYES OPEN!"
+            # Add warning text in red for yawning state
+            cv2.putText(frame, "!! DO NOT CLOSE EYES WHILE YAWNING !!", (w//2 - 220, h - 20),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
         else:
             instruction = ""
         

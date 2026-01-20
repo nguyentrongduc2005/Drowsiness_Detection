@@ -1,6 +1,7 @@
 """
 AI Module: Face detection and landmark extraction using MediaPipe
 Optimized version with preprocessing and smoothing
+Enhanced with Head Pose Estimation (PnP algorithm)
 """
 import cv2
 import numpy as np
@@ -59,9 +60,23 @@ class FaceDetector:
         # Store raw MediaPipe landmarks for head pose estimation
         self.last_raw_landmarks = None
         
-        print("[OK] MediaPipe FaceMesh (Optimized) initialized!")
+        # Head Pose Estimation - 3D model points (standard face model)
+        self.model_points_3d = np.array([
+            (0.0, 0.0, 0.0),             # Nose tip
+            (0.0, -330.0, -65.0),        # Chin
+            (-225.0, 170.0, -135.0),     # Left eye left corner
+            (225.0, 170.0, -135.0),      # Right eye right corner
+            (-150.0, -150.0, -125.0),    # Left mouth corner
+            (150.0, -150.0, -125.0)      # Right mouth corner
+        ], dtype=np.float64)
+        
+        # Indices for head pose key points in MediaPipe 468 landmarks
+        self.head_pose_indices = [1, 152, 33, 263, 61, 291]
+        
+        print("[OK] MediaPipe FaceMesh (Optimized + Head Pose) initialized!")
         print(f"  - Smoothing: {self.smoothing_window} frames")
         print(f"  - Preprocessing: {'Enabled' if self.preprocessing_enabled else 'Disabled'}")
+        print("  - Head Pose: Enabled (PnP algorithm)")
     
     def _preprocess_frame(self, frame):
         """
@@ -102,7 +117,7 @@ class FaceDetector:
             
             return enhanced
             
-        except Exception as e:
+        except Exception:
             # If error, return original frame
             return frame
     
@@ -351,6 +366,105 @@ class FaceDetector:
                 cv2.line(frame, mouth[i], mouth[(i + 1) % len(mouth)], (0, 0, 255), 1)
         
         return frame
+    
+    def get_head_pose(self, img_w, img_h):
+        """
+        Calculate head pose angles using PnP algorithm
+        
+        Args:
+            img_w: Image width
+            img_h: Image height
+            
+        Returns:
+            dict: {
+                'success': bool,
+                'pitch': float (gật đầu lên/xuống, degrees),
+                'yaw': float (quay trái/phải, degrees),
+                'roll': float (nghiêng đầu, degrees),
+                'nodding': bool (True nếu đang gục đầu)
+            }
+        """
+        if self.last_raw_landmarks is None:
+            return {
+                'success': False,
+                'pitch': 0.0,
+                'yaw': 0.0,
+                'roll': 0.0,
+                'nodding': False
+            }
+        
+        try:
+            # Extract 2D points from MediaPipe landmarks
+            face_2d = []
+            for idx in self.head_pose_indices:
+                lm = self.last_raw_landmarks.landmark[idx]
+                x, y = int(lm.x * img_w), int(lm.y * img_h)
+                face_2d.append([x, y])
+            
+            face_2d = np.array(face_2d, dtype=np.float64)
+            
+            # Camera matrix (assuming standard focal length)
+            focal_length = 1.0 * img_w
+            cam_matrix = np.array([
+                [focal_length, 0, img_w / 2],
+                [0, focal_length, img_h / 2],
+                [0, 0, 1]
+            ], dtype=np.float64)
+            
+            # Distortion coefficients (assuming no distortion)
+            dist_coeffs = np.zeros((4, 1), dtype=np.float64)
+            
+            # Solve PnP
+            success, rot_vec, _ = cv2.solvePnP(
+                self.model_points_3d,
+                face_2d,
+                cam_matrix,
+                dist_coeffs,
+                flags=cv2.SOLVEPNP_ITERATIVE
+            )
+            
+            if not success:
+                return {
+                    'success': False,
+                    'pitch': 0.0,
+                    'yaw': 0.0,
+                    'roll': 0.0,
+                    'nodding': False
+                }
+            
+            # Convert rotation vector to rotation matrix
+            rmat, _ = cv2.Rodrigues(rot_vec)
+            
+            # Decompose rotation matrix to Euler angles
+            angles, _, _, _, _, _ = cv2.RQDecomp3x3(rmat)
+            
+            # Extract angles (convert to degrees)
+            pitch = angles[0] * 360  # Gật đầu (negative = down, positive = up)
+            yaw = angles[1] * 360    # Quay đầu (negative = left, positive = right)
+            roll = angles[2] * 360   # Nghiêng đầu
+            
+            # Detect nodding (head tilted down significantly)
+            # Threshold: -15 degrees for warning, -25 for danger
+            is_nodding = pitch < -15
+            
+            return {
+                'success': True,
+                'pitch': pitch,
+                'yaw': yaw,
+                'roll': roll,
+                'nodding': is_nodding,
+                'nodding_severity': 'danger' if pitch < -25 else 'warning' if is_nodding else 'normal'
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'pitch': 0.0,
+                'yaw': 0.0,
+                'roll': 0.0,
+                'nodding': False,
+                'error': str(e)
+            }
     
     def __del__(self):
         """Cleanup when object is destroyed"""
