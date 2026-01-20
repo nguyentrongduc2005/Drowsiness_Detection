@@ -40,7 +40,9 @@ class CameraWorker(QThread):
         self.config = config
         self.running = False
         self.calibration_mode = False  # Calibration mode
-        
+        self.face_detector = None
+        self.drowsiness_detector = None
+    
         # Initialize components
         try:
             self.face_detector = FaceDetector(config.get_model_path())
@@ -72,6 +74,8 @@ class CameraWorker(QThread):
             self.start_time = time.time()
             
         except Exception as e:
+            error_msg = f"Initialization error: {str(e)}"
+            print(error_msg)
             self.error_occurred.emit(f"Initialization error: {str(e)}")
     
     def run(self):
@@ -500,6 +504,10 @@ class DrowsinessDetectionApp:
     
     def _update_calibration_info(self):
         """Update calibration information"""
+        if not self.worker or self.worker.drowsiness_detector is None:
+            self.window.calibration_info_label.setText("System Error: Detector not initialized")
+            self.window.calibration_info_label.setStyleSheet("color: #ff4d4d; padding: 5px;")
+            return
         cal_info = self.worker.drowsiness_detector.get_calibration_info()
         
         if cal_info.get('calibrated'):

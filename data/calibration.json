@@ -1,0 +1,12 @@
+{
+  "ear_open": 0.3867847655147069,
+  "ear_closed": 0.17569044232648895,
+  "ear_threshold": 0.2711280877584301,
+  "ear_open_min": 0.29902494402074487,
+  "ear_closed_max": 0.246480079780391,
+  "mar_normal": null,
+  "mar_yawn": 1.0950843153921472,
+  "mar_threshold": 0.602296373465681,
+  "calibrated": true,
+  "calibration_date": "2026-01-20T12:36:50.905149"
+}
