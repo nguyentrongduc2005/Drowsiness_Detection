@@ -5,8 +5,17 @@ Enhanced with Head Pose Estimation (PnP algorithm)
 """
 import cv2
 import numpy as np
-import mediapipe as mp
 from collections import deque
+
+# Verify mediapipe installation
+try:
+    import mediapipe as mp
+    if not hasattr(mp, 'solutions'):
+        raise ImportError("mediapipe.solutions not found. Please reinstall mediapipe.")
+except ImportError as e:
+    print(f"ERROR: Failed to import mediapipe: {e}")
+    print("Please install mediapipe: pip install mediapipe>=0.10.0")
+    raise
 
 
 class FaceDetector:
@@ -24,19 +33,24 @@ class FaceDetector:
     def __init__(self, predictor_path=None):
         """
         Initialize detector with MediaPipe FaceMesh - Optimized
-        Args:
+        Args: 
             predictor_path: Not used (kept for API compatibility)
         """
         print("Initializing face detector with MediaPipe (Optimized)...")
         
-        # Initialize MediaPipe FaceMesh with optimized configuration
-        self.mp_face_mesh = mp.solutions.face_mesh
-        self.face_mesh = self.mp_face_mesh.FaceMesh(
-            max_num_faces=1,
-            refine_landmarks=True,  # Enable iris landmarks for better accuracy
-            min_detection_confidence=0.6,  # Increase detection threshold
-            min_tracking_confidence=0.6   # Increase tracking threshold
-        )
+        try:
+            # Initialize MediaPipe FaceMesh with optimized configuration
+            self.mp_face_mesh = mp.solutions.face_mesh
+            self.face_mesh = self.mp_face_mesh.FaceMesh(
+                max_num_faces=1,
+                refine_landmarks=True,  # Enable iris landmarks for better accuracy
+                min_detection_confidence=0.6,  # Increase detection threshold
+                min_tracking_confidence=0.6   # Increase tracking threshold
+            )
+        except Exception as e:
+            print(f"ERROR: Failed to initialize MediaPipe FaceMesh: {e}")
+            print("Please reinstall mediapipe: pip uninstall mediapipe && pip install mediapipe>=0.10.0")
+            raise
         
         # Landmark smoothing - reduce noise between frames
         self.smoothing_enabled = True
