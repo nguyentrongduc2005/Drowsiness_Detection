@@ -42,6 +42,15 @@ class CameraWorker(QThread):
         self.calibration_mode = False  # Calibration mode
         self.face_detector = None
         self.drowsiness_detector = None
+        
+        # Initialize basic attributes first (must be set before any exception)
+        self.camera = None
+        self.fps = 0
+        self.frame_count = 0
+        self.start_time = time.time()
+        self.logger = None
+        self.stats_tracker = None
+        self.alarm_sound = None
     
         # Initialize components
         try:
@@ -52,9 +61,6 @@ class CameraWorker(QThread):
             if config.is_log_enabled():
                 self.logger = EventLogger()
                 self.stats_tracker = StatisticsTracker()
-            else:
-                self.logger = None
-                self.stats_tracker = None
             
             # Pygame for sound
             pygame.mixer.init()
@@ -62,21 +68,15 @@ class CameraWorker(QThread):
             if os.path.exists(alarm_path):
                 self.alarm_sound = pygame.mixer.Sound(alarm_path)
             else:
-                self.alarm_sound = None
                 print(f"Warning: Sound file not found: {alarm_path}")
             
-            # Camera
-            self.camera = None
-            
-            # FPS tracking
-            self.fps = 0
-            self.frame_count = 0
-            self.start_time = time.time()
-            
         except Exception as e:
+            import traceback
             error_msg = f"Initialization error: {str(e)}"
             print(error_msg)
-            self.error_occurred.emit(f"Initialization error: {str(e)}")
+            print("Traceback:")
+            traceback.print_exc()
+            self.error_occurred.emit(error_msg)
     
     def run(self):
         """
@@ -84,6 +84,11 @@ class CameraWorker(QThread):
         
         Flow: Camera -> Landmarks -> EAR -> Update Threshold -> Compare -> Emit Signal
         """
+        # Check if components initialized successfully
+        if self.face_detector is None or self.drowsiness_detector is None:
+            self.error_occurred.emit("Failed to initialize components. Please check error messages above.")
+            return
+        
         # Open camera
         camera_id = self.config.get_camera_id()
         self.camera = cv2.VideoCapture(camera_id)
@@ -94,9 +99,12 @@ class CameraWorker(QThread):
         
         self.running = True
         last_alarm_time = 0
-        alarm_cooldown = 3  # Seconds
+        alarm_cooldown = 1.5  # Seconds - reduced for faster response
         
         while self.running:
+            # Increment frame counter at the start of each iteration
+            self.frame_count += 1
+            
             # Read frame from camera
             ret, frame = self.camera.read()
             
@@ -108,15 +116,14 @@ class CameraWorker(QThread):
             if frame.dtype != 'uint8':
                 frame = frame.astype('uint8')
             
+            # Calculate FPS periodically
+            if self.frame_count % 30 == 0:
+                elapsed_time = time.time() - self.start_time
+                if elapsed_time > 0:
+                    self.fps = self.frame_count / elapsed_time
+            
             # === P1: Detect landmarks ===
             landmarks = self.face_detector.get_landmarks(frame)
-            
-            # Debug: Display detection status
-            if self.frame_count % 30 == 0:  # Log every 30 frames
-                if landmarks is not None:
-                    pass  # print(f"[OK] Face detected - Frame {self.frame_count}")
-                else:
-                    print(f"[X] No face detected - Frame {self.frame_count}")
             
             if landmarks is not None:
                 # Get eye coordinates
@@ -155,11 +162,7 @@ class CameraWorker(QThread):
                                          result['calibration_text'], False, self.fps, 
                                          "CALIBRATING", 0.0, 0.0, 0.0, None)
                     
-                    # Calculate FPS and continue
-                    self.frame_count += 1
-                    if self.frame_count % 30 == 0:
-                        elapsed_time = time.time() - self.start_time
-                        self.fps = self.frame_count / elapsed_time
+                    # Continue to next frame
                     continue
                 
                 # === NORMAL MODE ===
@@ -196,7 +199,7 @@ class CameraWorker(QThread):
                 fatigue_score = result.get('fatigue_score', 0.0)
                 session_duration = result.get('session_duration', 0.0)
                 
-                # Sleep event info
+                # Sleep event info - THÊM yawn_count
                 sleep_info = {
                     'is_sleeping': result.get('is_sleeping', False),
                     'sleep_event_type': result.get('sleep_event_type'),
@@ -207,13 +210,17 @@ class CameraWorker(QThread):
                     'sleep_stats': result.get('sleep_stats', {}),
                     'sleep_trend': result.get('sleep_trend', 'stable'),
                     'sleep_risk': result.get('sleep_risk', 'low'),
+                    'yawn_count': yawn_count,  # Thêm yawn count vào sleep_info
                 }
                 
-                # === Handle warning ===
+                # === Handle warning với Alert System ===
+                alert_config = result.get('alert_config')
+                alert_message = result.get('alert_message', warning_reason)
+                
                 if warning:
                     current_time = time.time()
                     
-                    # Play alarm sound (with cooldown)
+                    # Play alarm sound khi có warning
                     if current_time - last_alarm_time > alarm_cooldown:
                         if self.alarm_sound:
                             self.alarm_sound.play()
@@ -222,21 +229,21 @@ class CameraWorker(QThread):
                         # Log alert
                         if self.logger:
                             self.logger.log_alert(ear, threshold)
-                            self.logger.log_event(ear, threshold, warning_reason, True)
+                            self.logger.log_event(ear, threshold, alert_message, True)
+                else:
+                    # NGỪNG ÂM THANH NGAY KHI KHÔNG CÒN WARNING (mở mắt lại)
+                    if self.alarm_sound:
+                        self.alarm_sound.stop()
                 
-                # Draw info on frame (if configured)
+                # Draw info on frame - VẼ TẤT CẢ MEDIAPIPE LANDMARKS
                 if self.config.get_show_landmarks():
-                    frame = self.face_detector.draw_landmarks(frame, landmarks)
-                
-                # Draw frame counter to show camera is working
-                cv2.putText(frame, f"Frame: {self.frame_count}", 
-                           (frame.shape[1] - 150, 30),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+                    # Vẽ đầy đủ 468 điểm MediaPipe
+                    frame = self.face_detector.draw_all_mediapipe_landmarks(frame)
                 
                 # Draw info on frame
                 head_pose = result.get('head_pose', {})
-                self._draw_info_on_frame(frame, ear, mar, threshold, status, warning, warning_reason, 
-                                        is_yawning, result['counter'], result['yawn_counter'], yawn_count, blink_rate, head_pose)
+                self._draw_info_on_frame(frame, ear, mar, threshold, status, warning, alert_message, 
+                                        is_yawning, result['counter'], result['yawn_counter'], yawn_count, blink_rate, head_pose, alert_config, result)
                 
                 # Log event
                 if self.logger and self.frame_count % 30 == 0:  # Log every 30 frames
@@ -257,11 +264,6 @@ class CameraWorker(QThread):
                 blink_rate = 0.0
                 session_duration = time.time() - self.start_time
                 
-                # Draw frame counter
-                cv2.putText(frame, f"Frame: {self.frame_count}", 
-                           (frame.shape[1] - 150, 30),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
-                
                 # Draw larger and clearer message
                 cv2.putText(frame, "NO FACE DETECTED!", (10, 50), 
                            cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
@@ -277,12 +279,6 @@ class CameraWorker(QThread):
                 # Sleep info is None when no face detected
                 sleep_info = None
             
-            # Calculate FPS
-            self.frame_count += 1
-            if self.frame_count % 30 == 0:
-                elapsed_time = time.time() - self.start_time
-                self.fps = self.frame_count / elapsed_time
-            
             # Convert frame to QImage
             qt_image = self._convert_frame_to_qimage(frame)
             
@@ -294,14 +290,18 @@ class CameraWorker(QThread):
         if self.camera:
             self.camera.release()
         
+        # Stop alarm sound if playing
+        if self.alarm_sound:
+            self.alarm_sound.stop()
+        
         # Print final statistics
         if self.stats_tracker:
             self.stats_tracker.print_summary()
     
     def _draw_info_on_frame(self, frame, ear, mar, threshold, status, warning, warning_reason, 
-                           is_yawning, counter, yawn_counter, yawn_count, blink_rate, head_pose=None):
+                           is_yawning, counter, yawn_counter, yawn_count, blink_rate, head_pose=None, alert_config=None, result=None):
         """
-        Draw info on frame - ENHANCED with head pose
+        Draw info on frame - ENHANCED với Alert System
         
         Args:
             frame: Image frame
@@ -317,69 +317,135 @@ class CameraWorker(QThread):
             yawn_count: Total yawns in 60s
             blink_rate: Blink rate (times/minute)
             head_pose: Head pose data (pitch, yaw, roll)
+            alert_config: Alert configuration từ Alert System
+            result: Full result dict for fatigue info
         """
         # Colors
         color = (0, 0, 255) if warning else (0, 255, 0)
         
-        # EAR
+        # === THÔNG TIN CƠ BẢN (GÓC TRÁI TRÊN) ===
+        # EAR - Chỉ số quan trọng nhất
         cv2.putText(frame, f"EAR: {ear:.3f}", (10, 30), 
                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
         
-        # MAR
-        cv2.putText(frame, f"MAR: {mar:.3f}", (10, 60), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
-        
-        # Threshold
-        cv2.putText(frame, f"Threshold: {threshold:.3f}", (10, 90), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
-        
-        # Head Pose (if available)
-        if head_pose and head_pose.get('success'):
-            pitch = head_pose.get('pitch', 0)
-            yaw = head_pose.get('yaw', 0)
-            nodding = head_pose.get('nodding', False)
-            
-            head_color = (0, 0, 255) if nodding else (0, 255, 0)
-            cv2.putText(frame, f"Head: P={pitch:.0f}° Y={yaw:.0f}°", (10, 120),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, head_color, 2)
-            
-            if nodding:
-                cv2.putText(frame, "HEAD NODDING!", (10, 150),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
-        
-        # Yawn count
+        # === CHỈ SỐ CƠ BẢN (GÓC TRÁI TRÊN) ===
+        # Yawn count (trong 5 phút)
         yawn_color = (0, 165, 255) if yawn_count >= 3 else (255, 255, 255)
-        cv2.putText(frame, f"Yawns (60s): {yawn_count}", (10, 120), 
+        cv2.putText(frame, f"Yawns: {yawn_count}/5min", (10, 60), 
                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, yawn_color, 2)
         
-        # Blink rate
+        # Blink rate (trung bình/phút)
         blink_color = (0, 165, 255) if blink_rate <= 10 else (255, 255, 255)
-        cv2.putText(frame, f"Blink rate: {blink_rate:.1f}/min", (10, 150), 
+        cv2.putText(frame, f"Blink: {blink_rate:.1f}/min", (10, 90), 
                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, blink_color, 2)
         
-        # Counter
-        if counter > 0:
-            cv2.putText(frame, f"Eye closed: {counter} frames", (10, 180), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+        # === YAWNING STATUS (GÓC PHẢI TRÊN) ===
+        # Hiển thị "YAWNING" khi đang ngáp
+        if is_yawning:
+            yawn_text = "YAWNING"
+            text_size = cv2.getTextSize(yawn_text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)[0]
+            box_x = frame.shape[1] - text_size[0] - 20
+            box_y = 10
+            
+            # Vẽ background box
+            cv2.rectangle(frame, (box_x - 10, box_y), 
+                         (frame.shape[1] - 10, box_y + text_size[1] + 20), 
+                         (0, 165, 255), -1)  # Orange background
+            cv2.rectangle(frame, (box_x - 10, box_y), 
+                         (frame.shape[1] - 10, box_y + text_size[1] + 20), 
+                         (255, 255, 255), 2)  # White border
+            
+            # Vẽ text
+            cv2.putText(frame, yawn_text, (box_x, box_y + text_size[1] + 5), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
         
-        # Display when yawning (no warning)
-        if is_yawning and not warning:
-            cv2.putText(frame, "Yawning...", (10, 210), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+        # === FATIGUE LEVEL (chỉ để check cho warning, KHÔNG hiển thị) ===
+        # Fatigue Score đã có trên SIDEBAR với score bar đẹp → không cần lặp lại
+        if result:
+            fatigue_level = result.get('fatigue_level', 'NORMAL')
+        else:
+            fatigue_level = 'NORMAL'
         
-        # Status
-        status_english = status.replace("Learning", "Learning").replace("Monitoring", "Monitoring").replace("No face detected", "No face detected")
-        cv2.putText(frame, status_english, (10, frame.shape[0] - 20), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+        # === TIRED WARNING (Hiển thị trên màn hình thay vì sidebar) ===
+        # Chỉ hiển thị khi TIRED - sidebar sẽ không hiện TIRED nữa
+        if fatigue_level == 'TIRED' and not warning:
+            # Thông báo nhẹ ở giữa phía trên
+            tired_text = "◐ FEELING TIRED?"
+            text_size = cv2.getTextSize(tired_text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)[0]
+            # Đặt ở giữa màn hình phía trên
+            box_x = (frame.shape[1] - text_size[0]) // 2
+            box_y = 10
+            
+            # Vẽ background box màu vàng
+            cv2.rectangle(frame, (box_x - 10, box_y), 
+                         (box_x + text_size[0] + 10, box_y + text_size[1] + 20), 
+                         (0, 200, 255), -1)  # Yellow background
+            cv2.rectangle(frame, (box_x - 10, box_y), 
+                         (box_x + text_size[0] + 10, box_y + text_size[1] + 20), 
+                         (255, 255, 255), 2)  # White border
+            
+            # Vẽ text
+            cv2.putText(frame, tired_text, (box_x, box_y + text_size[1] + 5), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
         
-        # Large WARNING if warning
+        # === CẢNH BÁO (Warning Display) ===
+        # Status - chỉ hiển thị khi có vấn đề (sidebar đã hiển thị các cảnh báo rồi)
+        if warning or not result:
+            status_y = frame.shape[0] - 20
+            cv2.putText(frame, status, (10, status_y), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+        
+        # === WARNING DISPLAY BASED ON ALERT CONFIG ===
         if warning:
-            cv2.putText(frame, "!!! DROWSINESS WARNING !!!", 
-                       (frame.shape[1]//2 - 280, frame.shape[0]//2 - 30), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3)
+            # Get color and severity from alert config (if available)
+            if alert_config:
+                alert_color = alert_config.color if hasattr(alert_config, 'color') else (0, 0, 255)
+                alert_title = alert_config.title if hasattr(alert_config, 'title') else "!!! WARNING !!!"
+                
+                # Kích thước text tùy theo severity
+                if hasattr(alert_config, 'severity'):
+                    from src.core.alert_system import AlertSeverity
+                    if alert_config.severity == AlertSeverity.CRITICAL:
+                        title_scale = 1.5
+                        msg_scale = 1.0
+                    elif alert_config.severity == AlertSeverity.DANGER:
+                        title_scale = 1.2
+                        msg_scale = 0.9
+                    else:
+                        title_scale = 1.0
+                        msg_scale = 0.8
+                else:
+                    title_scale = 1.0
+                    msg_scale = 0.8
+            else:
+                # No alert config (in cooldown) - use default
+                alert_color = (0, 0, 255)
+                alert_title = "!!! WARNING !!!"
+                title_scale = 1.0
+                msg_scale = 0.8
+            
+            # Display position (center screen)
+            center_x = frame.shape[1] // 2
+            center_y = frame.shape[0] // 2
+            
+            # Dark overlay for better readability
+            overlay = frame.copy()
+            cv2.rectangle(overlay, (0, center_y - 80), (frame.shape[1], center_y + 80), (0, 0, 0), -1)
+            cv2.addWeighted(overlay, 0.7, frame, 0.3, 0, frame)
+            
+            # Display large title
+            title_size = cv2.getTextSize(alert_title, cv2.FONT_HERSHEY_SIMPLEX, title_scale, 3)[0]
+            title_x = center_x - title_size[0] // 2
+            cv2.putText(frame, alert_title, 
+                       (title_x, center_y - 20), 
+                       cv2.FONT_HERSHEY_SIMPLEX, title_scale, alert_color, 3)
+            
+            # Display reason/instruction
+            msg_size = cv2.getTextSize(warning_reason, cv2.FONT_HERSHEY_SIMPLEX, msg_scale, 2)[0]
+            msg_x = center_x - msg_size[0] // 2
             cv2.putText(frame, warning_reason, 
-                       (frame.shape[1]//2 - 250, frame.shape[0]//2 + 20), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+                       (msg_x, center_y + 30), 
+                       cv2.FONT_HERSHEY_SIMPLEX, msg_scale, alert_color, 2)
     
     def _convert_frame_to_qimage(self, frame):
         """
@@ -469,6 +535,11 @@ class CameraWorker(QThread):
     def stop(self):
         """Stop thread"""
         self.running = False
+        
+        # Stop alarm sound immediately when stopping detection
+        if self.alarm_sound:
+            self.alarm_sound.stop()
+        
         self.wait()
     
     def reset_detector(self):

@@ -44,8 +44,8 @@ class FaceDetector:
             self.face_mesh = self.mp_face_mesh.FaceMesh(
                 max_num_faces=1,
                 refine_landmarks=True,  # Enable iris landmarks for better accuracy
-                min_detection_confidence=0.6,  # Increase detection threshold
-                min_tracking_confidence=0.6   # Increase tracking threshold
+                min_detection_confidence=0.6,
+                min_tracking_confidence=0.6
             )
         except Exception as e:
             print(f"ERROR: Failed to initialize MediaPipe FaceMesh: {e}")
@@ -54,21 +54,21 @@ class FaceDetector:
         
         # Landmark smoothing - reduce noise between frames
         self.smoothing_enabled = True
-        self.smoothing_window = 3  # Number of frames for smoothing
+        self.smoothing_window = 3
         self.landmark_history = deque(maxlen=self.smoothing_window)
         
         # Preprocessing settings
         self.preprocessing_enabled = True
-        self.target_brightness = 130  # Target brightness (0-255)
+        self.target_brightness = 130
         self.clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         
         # Detection recovery - count frames without face to reset
         self.frames_without_face = 0
-        self.max_frames_without_face = 10  # Reset after N frames without face
+        self.max_frames_without_face = 10
         
         # Cache last valid landmarks
         self.last_valid_landmarks = None
-        self.landmark_timeout = 5  # Number of frames to use cache
+        self.landmark_timeout = 5
         self.frames_using_cache = 0
         
         # Store raw MediaPipe landmarks for head pose estimation
@@ -378,6 +378,80 @@ class FaceDetector:
             mouth = landmarks[48:68]
             for i in range(len(mouth)):
                 cv2.line(frame, mouth[i], mouth[(i + 1) % len(mouth)], (0, 0, 255), 1)
+        
+        return frame
+    
+    def draw_all_mediapipe_landmarks(self, frame):
+        """
+        Vẽ TẤT CẢ 468 điểm MediaPipe landmarks lên frame
+        Hiển thị đầy đủ mesh của khuôn mặt
+        
+        Args:
+            frame: Image frame (BGR)
+            
+        Returns:
+            frame: Frame với tất cả landmarks được vẽ
+        """
+        if self.last_raw_landmarks is None:
+            return frame
+        
+        h, w = frame.shape[:2]
+        
+        # Vẽ tất cả 468 điểm
+        for idx, landmark in enumerate(self.last_raw_landmarks.landmark):
+            x = int(landmark.x * w)
+            y = int(landmark.y * h)
+            
+            # Màu sắc theo vùng
+            if idx in self.RIGHT_EYE_INDICES or idx in self.LEFT_EYE_INDICES:
+                color = (255, 0, 0)  # Mắt: Xanh dương
+                radius = 2
+            elif idx in [61, 40, 37, 0, 267, 270, 291, 321, 314, 17, 84, 91]:
+                color = (0, 0, 255)  # Miệng: Đỏ
+                radius = 2
+            elif idx in self.head_pose_indices:
+                color = (0, 255, 255)  # Key points cho head pose: Vàng
+                radius = 3
+            else:
+                color = (0, 255, 0)  # Các điểm khác: Xanh lá
+                radius = 1
+            
+            cv2.circle(frame, (x, y), radius, color, -1)
+        
+        # Vẽ connections (optional - tạo mesh)
+        if hasattr(self.mp_face_mesh, 'FACEMESH_TESSELATION'):
+            mp_drawing = __import__('mediapipe').solutions.drawing_utils
+            mp_drawing_styles = __import__('mediapipe').solutions.drawing_styles
+            
+            # Convert landmarks to correct format
+            from mediapipe.framework.formats import landmark_pb2
+            face_landmarks_proto = landmark_pb2.NormalizedLandmarkList()
+            face_landmarks_proto.landmark.extend([
+                landmark_pb2.NormalizedLandmark(x=landmark.x, y=landmark.y, z=landmark.z)
+                for landmark in self.last_raw_landmarks.landmark
+            ])
+            
+            # Vẽ mesh
+            mp_drawing.draw_landmarks(
+                image=frame,
+                landmark_list=face_landmarks_proto,
+                connections=self.mp_face_mesh.FACEMESH_TESSELATION,
+                landmark_drawing_spec=None,
+                connection_drawing_spec=mp_drawing_styles.get_default_face_mesh_tesselation_style()
+            )
+            
+            # Vẽ contours (viền mặt)
+            mp_drawing.draw_landmarks(
+                image=frame,
+                landmark_list=face_landmarks_proto,
+                connections=self.mp_face_mesh.FACEMESH_CONTOURS,
+                landmark_drawing_spec=None,
+                connection_drawing_spec=mp_drawing_styles.get_default_face_mesh_contours_style()
+            )
+        
+        # Thêm text thông tin
+        cv2.putText(frame, f"MediaPipe: 468 landmarks", (10, frame.shape[0] - 10),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
         
         return frame
     

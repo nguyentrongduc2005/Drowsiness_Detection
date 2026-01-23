@@ -3,16 +3,62 @@
     "ear_default": 0.25,
     "consecutive_frames": 20,
     "min_ear_threshold": 0.18,
-    "max_ear_threshold": 0.3
+    "max_ear_threshold": 0.3,
+    "blink_max": 0.4,
+    "microsleep_min": 0.5,
+    "microsleep_max": 2.0,
+    "near_sleep_max": 4.0,
+    "sleep_critical": 4.0,
+    "eye_closed_warning": 1.5,
+    "eye_closed_danger": 2.0,
+    "eye_closed_critical": 4.0
   },
   "mouth_thresholds": {
     "mar_limit": 0.6,
-    "yawn_frames": 30
+    "yawn_frames": 30,
+    "yawn_duration_min": 1.5,
+    "yawn_reminder_threshold": 2,
+    "yawn_mar_variance_max": 0.05,
+    "yawn_ear_drop_threshold": 0.03
+  },
+  "perclos_thresholds": {
+    "normal": 0.08,
+    "tired": 0.15,
+    "drowsy": 0.25,
+    "critical": 0.4
+  },
+  "head_pose_thresholds": {
+    "pitch_warning": -15,
+    "pitch_danger": -25,
+    "roll_warning": 20,
+    "yaw_warning": 25,
+    "yaw_danger": 40,
+    "duration": 0.5
+  },
+  "blink_rate_thresholds": {
+    "low": 8,
+    "normal_min": 12,
+    "normal_max": 20,
+    "high": 25,
+    "low_duration": 30
+  },
+  "fatigue_thresholds": {
+    "window_minutes": 3,
+    "yawn_threshold": 3,
+    "drowsy_count": 5
   },
   "smart_threshold": {
     "window_size": 150,
     "min_samples_for_learning": 100,
     "threshold_multiplier": 0.75
+  },
+  "detection_settings": {
+    "min_detection_confidence": 0.6,
+    "min_tracking_confidence": 0.6,
+    "smoothing_window": 3,
+    "max_frames_without_face": 10,
+    "landmark_timeout": 5,
+    "target_brightness": 130
   },
   "paths": {
     "model_path": "data/shape_predictor_68_face_landmarks.dat",

@@ -193,19 +193,13 @@ class MainWindow(QMainWindow):
         # Header
         self._create_header(layout)
         
-        # Metrics
-        self._create_metrics_panel(layout)
-        
-        # Fatigue Status
+        # Fatigue Status - CHỈ SỐ QUAN TRỌNG NHẤT
         self._create_fatigue_panel(layout)
         
-        # Sleep Detection
-        self._create_sleep_panel(layout)
-        
-        # Alert Box
+        # Alert Box - TRẠNG THÁI HIỆN TẠI
         self._create_alert_box(layout)
         
-        # Controls
+        # Controls - CÁC NÚT ĐIỀU KHIỂN
         self._create_controls(layout)
         
         # Calibration Info
@@ -224,7 +218,7 @@ class MainWindow(QMainWindow):
 
     def _create_header(self, parent):
         """Create header section"""
-        header = QLabel("◈ SENTINEL")
+        header = QLabel("◈ DRIVER MONITOR")
         header.setAlignment(Qt.AlignCenter)
         header.setFont(QFont(FONT_MONO, 12, QFont.Bold))
         header.setMinimumHeight(32)
@@ -355,8 +349,8 @@ class MainWindow(QMainWindow):
         score_layout.addWidget(self.fatigue_score_text)
         layout.addWidget(score_container)
         
-        # Session info
-        self.session_info = QLabel("Session: 00:00 | Blinks: 0/min")
+        # Session info - thêm Yawns
+        self.session_info = QLabel("Session: 00:00 | Yawns: 0 | Blinks: 0/min")
         self.session_info.setFont(QFont(FONT_MONO, 9))
         self.session_info.setStyleSheet(f"color: {COLORS['text_dim']};")
         self.session_info.setAlignment(Qt.AlignCenter)
@@ -547,12 +541,6 @@ class MainWindow(QMainWindow):
                 self.video_label.setPixmap(
                     pixmap.scaled(w, h, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         
-        # Metrics
-        self.val_ear.setText(f"{ear:.3f}")
-        self.val_mar.setText(f"{mar:.3f}")
-        self.val_fps.setText(f"{int(fps)}")
-        self.val_thresh.setText(f"{threshold:.3f}")
-        
         # Status display
         status_upper = status.upper()
         self.status_display.setText(status_upper)
@@ -561,15 +549,17 @@ class MainWindow(QMainWindow):
         else:
             self.status_display.setStyleSheet(f"color: {COLORS['text_dim']}; border: none;")
         
-        # Fatigue & Sleep
-        self._update_fatigue_display(fatigue_state, fatigue_score, blink_rate, session_duration)
-        self._update_sleep_display(sleep_info)
+        # Fatigue display (bao gồm yawn count)
+        yawn_count = 0
+        if sleep_info:
+            yawn_count = sleep_info.get('yawn_count', 0)
+        self._update_fatigue_display(fatigue_state, fatigue_score, blink_rate, session_duration, yawn_count)
         
         # Alert state
         self._update_alert_state(fatigue_state, is_drowsy, sleep_info)
     
     def _update_alert_state(self, fatigue_state, is_drowsy, sleep_info):
-        """Update alert box based on state"""
+        """Update alert box based on state - CHỈ hiển thị NORMAL hoặc cảnh báo NGỦ"""
         is_sleeping = sleep_info.get('is_sleeping', False) if sleep_info else False
         alert_msg = sleep_info.get('sleep_alert_message', '') if sleep_info else ''
         
@@ -578,8 +568,8 @@ class MainWindow(QMainWindow):
             self._set_alert_style(COLORS['red'], msg, pulse=True)
         elif fatigue_state == "DROWSY" or is_drowsy:
             self._set_alert_style(COLORS['orange'], "⚡ DROWSY DETECTED")
-        elif fatigue_state == "TIRED":
-            self._set_alert_style(COLORS['yellow'], "◐ TIRED")
+        # BỎ TIRED - chỉ hiển thị cảnh báo ngủ hoặc bình thường
+        # TIRED sẽ được thông báo trên màn hình video
         else:
             self._set_alert_style(COLORS['green'], "✓ DRIVER ACTIVE")
     
@@ -602,58 +592,16 @@ class MainWindow(QMainWindow):
             border-radius: 8px;
         """)
     
-    def _update_sleep_display(self, sleep_info):
-        """Update Sleep Detection display"""
-        if not sleep_info:
-            return
-        
-        is_sleeping = sleep_info.get('is_sleeping', False)
-        event_type = sleep_info.get('sleep_event_type')
-        duration = sleep_info.get('sleep_duration', 0)
-        stats = sleep_info.get('sleep_stats', {})
-        risk = sleep_info.get('sleep_risk', 'low')
-        trend = sleep_info.get('sleep_trend', 'stable')
-        pre_sleep = sleep_info.get('pre_sleep_warning', False)
-        
-        risk_colors = {'low': COLORS['green'], 'moderate': COLORS['yellow'],
-                       'high': COLORS['orange'], 'critical': COLORS['red']}
-        trend_icons = {'improving': '↓', 'stable': '↔', 'worsening': '↑'}
-        
-        risk_color = risk_colors.get(risk, COLORS['green'])
-        trend_icon = trend_icons.get(trend, '↔')
-        trend_color = COLORS['green'] if trend == 'improving' else (
-            COLORS['red'] if trend == 'worsening' else COLORS['text_dim'])
-        
-        # Status
-        if is_sleeping:
-            event_names = {'microsleep': 'MICROSLEEP', 'near_sleep': 'NEAR-SLEEP', 'sleep_episode': 'SLEEPING'}
-            self.sleep_status_label.setText(f"● {event_names.get(event_type, 'SLEEP')} ({duration:.1f}s)")
-            self.sleep_status_label.setStyleSheet(f"color: {COLORS['red']};")
-        elif pre_sleep:
-            self.sleep_status_label.setText("⚠ PRE-SLEEP WARNING")
-            self.sleep_status_label.setStyleSheet(f"color: {COLORS['yellow']};")
-        elif stats.get('total_events', 0) > 0:
-            self.sleep_status_label.setText(f"● {stats.get('total_events')} EVENT(S)")
-            self.sleep_status_label.setStyleSheet(f"color: {risk_color};")
-        else:
-            self.sleep_status_label.setText("● NO EVENTS")
-            self.sleep_status_label.setStyleSheet(f"color: {COLORS['green']};")
-        
-        # Stats
-        self.sleep_stats_label.setText(
-            f"Events: {stats.get('total_events', 0)} | Total: {stats.get('total_sleep_time', 0):.1f}s")
-        self.sleep_risk_label.setText(risk.upper())
-        self.sleep_risk_label.setStyleSheet(f"color: {risk_color};")
-        self.sleep_trend_label.setText(trend_icon)
-        self.sleep_trend_label.setStyleSheet(f"color: {trend_color};")
-    
-    def _update_fatigue_display(self, state, score, blink_rate, session_duration):
-        """Update FatigueState display"""
+    def _update_fatigue_display(self, state, score, blink_rate, session_duration, yawn_count=0):
+        """Update FatigueState display - Sidebar chỉ hiển thị NORMAL hoặc warnings"""
         state = state or "NORMAL"
         
+        # Map TIRED về NORMAL cho sidebar (TIRED sẽ hiện trên video)
+        if state == "TIRED":
+            state = "NORMAL"
+        
         colors = {"ALERT": COLORS['green'], "NORMAL": COLORS['green'],
-                  "TIRED": COLORS['yellow'], "DROWSY": COLORS['orange'],
-                  "CRITICAL": COLORS['red']}
+                  "DROWSY": COLORS['orange'], "CRITICAL": COLORS['red']}
         color = colors.get(state, COLORS['green'])
         r, g, b = int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
         
@@ -682,9 +630,9 @@ class MainWindow(QMainWindow):
         self.fatigue_score_text.setText(f"{int(score)}%")
         self.fatigue_score_text.setStyleSheet(f"color: {color};")
         
-        # Session info
+        # Session info - bao gồm Yawns
         mins, secs = int(session_duration // 60), int(session_duration % 60)
-        self.session_info.setText(f"Session: {mins:02d}:{secs:02d} | Blinks: {blink_rate:.0f}/min")
+        self.session_info.setText(f"Session: {mins:02d}:{secs:02d} | Yawns: {yawn_count} | Blinks: {blink_rate:.0f}/min")
     
     def set_buttons_state(self, started):
         """Set buttons enabled state"""
