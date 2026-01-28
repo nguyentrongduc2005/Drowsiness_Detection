@@ -1,1 +1,4 @@
-# This file keeps the core directory in git
+"""Core module"""
+from .detection_engine import DetectionEngine
+
+__all__ = ['DetectionEngine']

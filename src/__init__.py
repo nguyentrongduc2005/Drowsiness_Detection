@@ -1,1 +1,4 @@
-# This file keeps the src directory in git
+"""
+Driver Drowsiness Detection System
+"""
+__version__ = "1.0.0"

@@ -1,9 +1,5 @@
-numpy==1.26.4
-opencv-python==4.9.0.80
-mediapipe==0.10.14
-pillow==12.1.0
-pygame==2.6.1
-PyQt5==5.15.11
-PyQt5-Qt5==5.15.2
-PyQt5_sip==12.17.2
-scipy==1.16.3
+opencv-python==4.8.1.78
+mediapipe==0.10.8
+PyQt5==5.15.10
+pygame==2.5.2
+numpy==1.24.3
