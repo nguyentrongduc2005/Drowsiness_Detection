@@ -6,7 +6,7 @@ import mediapipe as mp
 import numpy as np
 from typing import Optional, Tuple
 
-
+# pylint: disable=too-many-public-methods
 class FaceDetector:
     """Phát hiện khuôn mặt và landmark bằng MediaPipe"""
     

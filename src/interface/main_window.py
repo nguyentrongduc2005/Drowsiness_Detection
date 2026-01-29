@@ -13,7 +13,7 @@ from ..config import ConfigManager
 from ..core import DetectionEngine
 from ..alert import AlertLevel
 
-
+# pylint: disable=too-many-instance-attributes
 class MainWindow(QMainWindow):
     """Cửa sổ chính của ứng dụng"""
     

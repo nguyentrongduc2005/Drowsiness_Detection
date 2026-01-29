@@ -14,7 +14,7 @@ from ..detection import FaceDetector, MetricsProcessor
 from ..alert import AlertSystem, AlertLevel
 from ..learning import LearningEngine
 
-
+# pylint: disable=too-many-instance-attributes
 class DetectionEngine(QThread):
     """
     Engine xử lý detection chạy trong thread riêng

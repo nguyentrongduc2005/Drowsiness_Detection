@@ -6,7 +6,7 @@ import json
 import os
 from typing import Dict, Any, Optional
 
-
+# pylint: disable=too-many-public-methods
 class ConfigManager:
     """Quản lý cấu hình hệ thống"""
     
