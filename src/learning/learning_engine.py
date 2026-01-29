@@ -4,7 +4,7 @@ Learning Engine - Tự động học và điều chỉnh ngưỡng
 import numpy as np
 from typing import Optional
 
-
+# pylint: disable=too-many-public-methods
 class LearningEngine:
     """Quản lý việc học và cập nhật ngưỡng tự động"""
     

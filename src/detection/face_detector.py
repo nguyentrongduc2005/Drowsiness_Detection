@@ -7,6 +7,7 @@ import numpy as np
 from typing import Optional, Tuple
 
 # pylint: disable=too-many-public-methods
+# pylint: disable=too-many-arguments
 class FaceDetector:
     """Phát hiện khuôn mặt và landmark bằng MediaPipe"""
     

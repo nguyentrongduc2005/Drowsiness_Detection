@@ -14,6 +14,7 @@ from ..core import DetectionEngine
 from ..alert import AlertLevel
 
 # pylint: disable=too-many-instance-attributes
+# pylint: disable=too-many-public-methods
 class MainWindow(QMainWindow):
     """Cửa sổ chính của ứng dụng"""
     
