@@ -47,7 +47,7 @@ class MainWindow(QMainWindow):
         """Khởi tạo giao diện Cyberpunk"""
         # Window Configuration - Normal Windows style with fixed size
         self.setWindowTitle("NEURAL_LINK :: DROWSINESS DETECTOR v2.077")
-        self.setFixedSize(1200, 750)
+        self.setFixedSize(1200, 900)  # Increased height to prevent overlap
         
         # Central widget
         central_widget = QWidget()
@@ -214,30 +214,34 @@ class MainWindow(QMainWindow):
         self.status_label = QLabel("OFFLINE")
         self.status_label.setObjectName("alertBox")
         self.status_label.setAlignment(Qt.AlignCenter)
-        self.status_label.setMinimumHeight(55)
+        self.status_label.setMinimumHeight(40)
         control_layout.addWidget(self.status_label)
         
         # ---------------------------------------------------------------
         # CONTROL BUTTONS
         # ---------------------------------------------------------------
-        control_layout.addSpacing(8)
+        control_layout.addSpacing(5)
         
         self.start_stop_btn = QPushButton("INITIALIZE SCANNER")
         self.start_stop_btn.setObjectName("primaryButton")
-        self.start_stop_btn.setMinimumHeight(48)
+        self.start_stop_btn.setMinimumHeight(40)
         self.start_stop_btn.clicked.connect(self._toggle_detection)
         control_layout.addWidget(self.start_stop_btn)
         
+        control_layout.addSpacing(5) # Spacing
+        
         self.learn_btn = QPushButton("RESET NEURAL LEARNING")
         self.learn_btn.setObjectName("secondaryButton")
-        self.learn_btn.setMinimumHeight(42)
+        self.learn_btn.setMinimumHeight(40)
         self.learn_btn.clicked.connect(self._reset_learning)
         self.learn_btn.setEnabled(False)
         control_layout.addWidget(self.learn_btn)
         
+        control_layout.addSpacing(5) # Spacing
+        
         self.landmarks_btn = QPushButton("HIDE BIOMETRICS")
         self.landmarks_btn.setObjectName("accentButton")
-        self.landmarks_btn.setMinimumHeight(42)
+        self.landmarks_btn.setMinimumHeight(40)
         self.landmarks_btn.clicked.connect(self._toggle_landmarks)
         self.landmarks_btn.setEnabled(False)
         control_layout.addWidget(self.landmarks_btn)
@@ -259,27 +263,55 @@ class MainWindow(QMainWindow):
         # ---------------------------------------------------------------
         divider2 = QFrame()
         divider2.setObjectName("divider")
-        divider2.setFixedHeight(2)
+        divider2.setFixedHeight(5)
         control_layout.addWidget(divider2)
         
         metrics_header = QLabel("BIOMETRIC READINGS")
         metrics_header.setObjectName("subHeader")
         control_layout.addWidget(metrics_header)
         
-        # EAR Metric
-        self.ear_frame = self._create_metric_row("EYE ASPECT RATIO", "0.000", "0.000")
-        control_layout.addWidget(self.ear_frame)
+        # Combined Metrics Frame
+        self.metrics_frame = QFrame()
+        self.metrics_frame.setObjectName("metricFrame")
+        metrics_layout = QVBoxLayout(self.metrics_frame)
+        metrics_layout.setContentsMargins(12, 10, 12, 10)
+        metrics_layout.setSpacing(8)
         
-        # MAR Metric
-        self.mar_frame = self._create_metric_row("MOUTH ASPECT RATIO", "0.000", "0.000")
-        control_layout.addWidget(self.mar_frame)
+        # EAR Row
+        ear_row = QHBoxLayout()
+        ear_label = QLabel("EYE ASPECT RATIO:")
+        ear_label.setObjectName("metricLabel")
+        self.ear_value = QLabel("0.000")
+        self.ear_value.setObjectName("metricValueCyan")
+        self.ear_threshold = QLabel("THR: 0.000")
+        self.ear_threshold.setObjectName("metricValueAmber")
+        ear_row.addWidget(ear_label)
+        ear_row.addStretch()
+        ear_row.addWidget(self.ear_value)
+        ear_row.addSpacing(15)
+        ear_row.addWidget(self.ear_threshold)
+        metrics_layout.addLayout(ear_row)
         
-        # Activity Metrics
-        self.activity_frame = QFrame()
-        self.activity_frame.setObjectName("metricFrame")
-        activity_layout = QVBoxLayout(self.activity_frame)
-        activity_layout.setContentsMargins(12, 10, 12, 10)
-        activity_layout.setSpacing(5)
+        # MAR Row
+        mar_row = QHBoxLayout()
+        mar_label = QLabel("MOUTH ASPECT RATIO:")
+        mar_label.setObjectName("metricLabel")
+        self.mar_value = QLabel("0.000")
+        self.mar_value.setObjectName("metricValueCyan")
+        self.mar_threshold = QLabel("THR: 0.000")
+        self.mar_threshold.setObjectName("metricValueAmber")
+        mar_row.addWidget(mar_label)
+        mar_row.addStretch()
+        mar_row.addWidget(self.mar_value)
+        mar_row.addSpacing(15)
+        mar_row.addWidget(self.mar_threshold)
+        metrics_layout.addLayout(mar_row)
+        
+        # Divider inside box
+        inner_divider = QFrame()
+        inner_divider.setFixedHeight(1)
+        inner_divider.setStyleSheet("background-color: rgba(0, 240, 255, 0.2);")
+        metrics_layout.addWidget(inner_divider)
         
         # Blink Rate Row
         blink_row = QHBoxLayout()
@@ -290,6 +322,7 @@ class MainWindow(QMainWindow):
         blink_row.addWidget(blink_label)
         blink_row.addStretch()
         blink_row.addWidget(self.blink_value)
+        metrics_layout.addLayout(blink_row)
         
         # Yawn Count Row
         yawn_row = QHBoxLayout()
@@ -300,24 +333,24 @@ class MainWindow(QMainWindow):
         yawn_row.addWidget(yawn_label)
         yawn_row.addStretch()
         yawn_row.addWidget(self.yawn_value)
+        metrics_layout.addLayout(yawn_row)
         
-        activity_layout.addLayout(blink_row)
-        activity_layout.addLayout(yawn_row)
-        control_layout.addWidget(self.activity_frame)
-        
-        control_layout.addStretch()
+        control_layout.addWidget(self.metrics_frame)
+        control_layout.addSpacing(15)
+
         
         # ---------------------------------------------------------------
         # SYSTEM INFO (Decorative)
         # ---------------------------------------------------------------
-        divider3 = QFrame()
-        divider3.setObjectName("divider")
-        divider3.setFixedHeight(2)
-        control_layout.addWidget(divider3)
         
         info_header = QLabel("SYSTEM INFO")
         info_header.setObjectName("subHeader")
         control_layout.addWidget(info_header)
+        
+        divider3 = QFrame()
+        divider3.setObjectName("divider")
+        divider3.setFixedHeight(2)
+        control_layout.addWidget(divider3)
         
         info_items = [
             ("ENCRYPTION:", "AES-256"),
@@ -342,9 +375,10 @@ class MainWindow(QMainWindow):
         """Tạo một hàng metric với current value và threshold"""
         frame = QFrame()
         frame.setObjectName("metricFrame")
+        frame.setMinimumHeight(75)  # Fix: Đặt chiều cao tối thiểu để tránh bị cắt chữ
         layout = QVBoxLayout(frame)
-        layout.setContentsMargins(12, 10, 12, 10)
-        layout.setSpacing(3)
+        layout.setContentsMargins(15, 12, 15, 12)
+        layout.setSpacing(5)
         
         # Name
         name_label = QLabel(name)
@@ -810,12 +844,12 @@ class MainWindow(QMainWindow):
             metrics: Dictionary chứa các metrics
         """
         # Update EAR
-        self.ear_frame.current_label.setText(f"VAL: {metrics['ear']:.3f}")
-        self.ear_frame.threshold_label.setText(f"THR: {metrics['ear_threshold']:.3f}")
+        self.ear_value.setText(f"{metrics['ear']:.3f}")
+        self.ear_threshold.setText(f"THR: {metrics['ear_threshold']:.3f}")
         
         # Update MAR
-        self.mar_frame.current_label.setText(f"VAL: {metrics['mar']:.3f}")
-        self.mar_frame.threshold_label.setText(f"THR: {metrics['mar_threshold']:.3f}")
+        self.mar_value.setText(f"{metrics['mar']:.3f}")
+        self.mar_threshold.setText(f"THR: {metrics['mar_threshold']:.3f}")
         
         # Update activity
         self.blink_value.setText(f"{metrics['blink_rate']} /min")
